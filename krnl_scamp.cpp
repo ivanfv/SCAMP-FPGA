@@ -36,7 +36,7 @@ Description:
 #include "scamp.h"
 #include <limits>
 
-#define VDATA_SIZE 64
+#define VDATA_SIZE 32
 #define IDATA_SIZE 16
 
 //TRIPCOUNT indentifier
@@ -53,88 +53,144 @@ typedef struct v_intdatatype {
 extern "C" {
 
 
-
-void calculate_cov(const DTYPE * tSeries_i, const DTYPE * tSeries_j, DTYPE * covariance, DTYPE tmpMeans1, DTYPE means_0, ITYPE w, ITYPE j)
+void update_covariances(const DTYPE * df, const DTYPE * dg,
+		const DTYPE df_i, const DTYPE dg_i, DTYPE * tmp_covariances,
+		const ITYPE j)
 {
-	DTYPE tmpVect1[VDATA_SIZE];
-	DTYPE tmpVect2[VDATA_SIZE];
-	DTYPE tmpVect3[VDATA_SIZE];
-	DTYPE tmpVect4[VDATA_SIZE];
+	DTYPE tmp_df_j[VDATA_SIZE];
+	DTYPE tmp_dg_j[VDATA_SIZE];
 
-	DTYPE tmp_cov = *covariance;
+	#pragma HLS array_partition variable=tmp_df_j complete
+	#pragma HLS array_partition variable=tmp_dg_j complete
+
+
+	//#pragma HLS dataflow
+	read_df_dg_data:for(int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS PIPELINE II=1
+		tmp_df_j[k]    = df[j + k];
+		tmp_dg_j[k]    = dg[j + k];
+	}
+
+	covariances_update:for(int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS unroll factor=32
+		tmp_covariances[k] += (df_i * tmp_dg_j[j + k]) + (tmp_df_j[j + k] * dg_i) ;
+	}
+}
+
+void update_profile(const DTYPE * tmp_correlations, DTYPE * tmp_profile_j, DTYPE * profile_j, ITYPE j)
+{
+
+	//DTYPE tmp_profile_j[VDATA_SIZE];
+    #pragma HLS array_partition variable=tmp_profile_j cyclic factor=16
+
+	calculate_updates:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+			#pragma HLS unroll factor=16
+			/*if (tmp_correlations[k] > tmp_profile_i[0])
+			{
+				tmp_profile_i[0] = tmp_correlations[k];
+			}*/
+
+			if (tmp_correlations[k] > tmp_profile_j[k])
+			{
+				tmp_profile_j[k] = tmp_correlations[k];
+			}
+		}
+
+		write_back:for (int k = 0; k < VDATA_SIZE; k++)
+		{
+			#pragma HLS PIPELINE II=1
+			//profile_i[i] = tmp_profile_i[0];
+			profile_j[j + k] = tmp_profile_j[k];
+		}
+
+}
+
+/*void do_diagonal(const DTYPE * norms_0, DTYPE * tmp_covariances, const DTYPE * tmp_norms_i,
+		)
+{
+	DTYPE tmp_correlations[VDATA_SIZE];
+	DTYPE tmp_norms_0[VDATA_SIZE];
+	DTYPE tmp_profile_0[VDATA_SIZE];
+
+	#pragma HLS array_partition variable=tmp_correlations cyclic factor=16
+	#pragma HLS array_partition variable=tmp_norms_0 cyclic factor=16
+	#pragma HLS array_partition variable=tmp_profile_0 cyclic factor=16
+
 
 	#pragma HLS dataflow
 
-	cc_loop1:for (int k = 0; k < VDATA_SIZE; k++)
+	read_norms_data:for(int k = 0; k < VDATA_SIZE; k++)
 	{
-		#pragma HLS PIPELINE II=1
-		tmpVect1[k] = tSeries_j[j + w + k];
-		//tmpVect2[k] = tSeries[w + k];
+			#pragma HLS PIPELINE II=1
+			tmp_norms_0[k] = norms_0[j + k];
 	}
 
-	cc_loop2:for (int k = 0; k < VDATA_SIZE; k++)
+    correlations:for (int k = 0; k < VDATA_SIZE; k++)
 	{
-		#pragma HLS PIPELINE II=1
-		tmpVect2[k] = tSeries_i[w + k];
-		tmpVect3[k] = tmpVect1[k];
+		#pragma HLS unroll factor=16
+		tmp_correlations[k] = tmp_covariances[k] * tmp_norms_i[i_read_counter] * tmp_norms_0[k];
 	}
 
+    update_covariances(df_i, dg_j, tmp_df_i[i_read_counter], tmp_dg_i[i_read_counter], tmp_covariances, j);
 
-	cc_loop3:for (int k = 0; k < VDATA_SIZE; k+=4)
+	read_profile_data:for(int k = 0; k < VDATA_SIZE; k++)
 	{
-		//#pragma HLS PIPELINE II=1
-		//covariance += ((tSeries[diag + w].data[0] - means[diag].data[0]) * (tSeries[w].data[0] - means[0].data[0]));
-		tmpVect4[k] = ((tmpVect3[k] - tmpMeans1) * (tmpVect2[k] - means_0));
-		tmpVect4[k+1] = ((tmpVect3[k+1] - tmpMeans1) * (tmpVect2[k+1] - means_0));
-		tmpVect4[k+2] = ((tmpVect3[k+2] - tmpMeans1) * (tmpVect2[k+2] - means_0));
-		tmpVect4[k+3] = ((tmpVect3[k+3] - tmpMeans1) * (tmpVect2[k+3] - means_0));
+			#pragma HLS PIPELINE II=1
+			tmp_profile_0[k] = profile_0[j + k];
 	}
 
-	cc_loop4:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		//#pragma HLS PIPELINE II=1
-		//covariance += ((tSeries[diag + w].data[0] - means[diag].data[0]) * (tSeries[w].data[0] - means[0].data[0]));
-		tmp_cov += tmpVect4[k];
-	}
-
-	*covariance = tmp_cov;
-}
+    update_profile(tmp_correlations, tmp_profile_0, profile_0, j);
 
 
-
+}*/
 
 void krnl_scamp(const DTYPE *tSeries_i, 	// Time Series input 1
 				const DTYPE *tSeries_j, 	// Time Series input 1
-		       const ITYPE *diagonals,
-               const DTYPE *means,
-			   const DTYPE *norms,
-			   const DTYPE *df,
-			   const DTYPE *dg,
-               DTYPE *profile,
-			   ITYPE *profileIndex,
-			   const ITYPE profileLength,
-			   const ITYPE numDiagonals,
-			   const ITYPE windowSize
+				const DTYPE *means,
+				const DTYPE *norms_i,
+				const DTYPE *norms_j,
+				const DTYPE *df_i,
+				const DTYPE *df_j,
+				const DTYPE *dg_i,
+				const DTYPE *dg_j,
+				DTYPE *profile_i,
+				DTYPE *profile_j,
+				ITYPE *profileIndex_i,
+				ITYPE *profileIndex_j,
+				const ITYPE profileLength,
+				const ITYPE numDiagonals,
+				const ITYPE windowSize
 ) {
 #pragma HLS INTERFACE m_axi port = tSeries_i offset = slave bundle = gmem0
 #pragma HLS INTERFACE m_axi port = tSeries_j offset = slave bundle = gmem1
-#pragma HLS INTERFACE m_axi port = diagonals offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = means offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = norms offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = df offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = dg offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = profile offset = slave bundle = gmem
-#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem
+#pragma HLS INTERFACE m_axi port = means offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = norms_i offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = norms_j offset = slave bundle = gmem1
+#pragma HLS INTERFACE m_axi port = df_i offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = df_j offset = slave bundle = gmem1
+#pragma HLS INTERFACE m_axi port = dg_i offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = dg_j offset = slave bundle = gmem1
+#pragma HLS INTERFACE m_axi port = profile_i offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = profile_j offset = slave bundle = gmem1
+#pragma HLS INTERFACE m_axi port = profileIndex_i offset = slave bundle = gmem0
+#pragma HLS INTERFACE m_axi port = profileIndex_j offset = slave bundle = gmem1
 
 #pragma HLS INTERFACE s_axilite port = tSeries_i bundle = control
 #pragma HLS INTERFACE s_axilite port = tSeries_j bundle = control
 #pragma HLS INTERFACE s_axilite port = means bundle = control
-#pragma HLS INTERFACE s_axilite port = norms bundle = control
-#pragma HLS INTERFACE s_axilite port = df bundle = control
-#pragma HLS INTERFACE s_axilite port = dg bundle = control
-#pragma HLS INTERFACE s_axilite port = diagonals bundle = control
-#pragma HLS INTERFACE s_axilite port = profile bundle = control
-#pragma HLS INTERFACE s_axilite port = profileIndex bundle = control
+#pragma HLS INTERFACE s_axilite port = norms_i bundle = control
+#pragma HLS INTERFACE s_axilite port = norms_j bundle = control
+#pragma HLS INTERFACE s_axilite port = df_i bundle = control
+#pragma HLS INTERFACE s_axilite port = df_j bundle = control
+#pragma HLS INTERFACE s_axilite port = dg_i bundle = control
+#pragma HLS INTERFACE s_axilite port = dg_j bundle = control
+#pragma HLS INTERFACE s_axilite port = profile_i bundle = control
+#pragma HLS INTERFACE s_axilite port = profile_j bundle = control
+#pragma HLS INTERFACE s_axilite port = profileIndex_i bundle = control
+#pragma HLS INTERFACE s_axilite port = profileIndex_j bundle = control
 #pragma HLS INTERFACE s_axilite port = profileLength bundle = control
 #pragma HLS INTERFACE s_axilite port = numDiagonals bundle = control
 #pragma HLS INTERFACE s_axilite port = windowSize bundle = control
@@ -155,126 +211,139 @@ void krnl_scamp(const DTYPE *tSeries_i, 	// Time Series input 1
 DTYPE covariance, correlation;
 ITYPE i, j;
 
+DTYPE tmp_tSeries_i[VDATA_SIZE];
+DTYPE tmp_tSeries_j[VDATA_SIZE];
+DTYPE tmp_means_j[VDATA_SIZE];
+
+DTYPE tmp_norms_i[VDATA_SIZE];
+DTYPE tmp_norms_j[VDATA_SIZE];
+
+DTYPE tmp_df_i[VDATA_SIZE];
+//DTYPE tmp_df_j[VDATA_SIZE];
+
+DTYPE tmp_dg_i[VDATA_SIZE];
+//DTYPE tmp_dg_j[VDATA_SIZE];
+
+
+DTYPE tmp_covariances[VDATA_SIZE];
+DTYPE tmp_correlations[VDATA_SIZE];
+DTYPE tmp_profile_i[VDATA_SIZE];
+DTYPE tmp_profile_j[VDATA_SIZE];
+
+
+#pragma HLS array_partition variable=tmp_tSeries_i cyclic factor=16
+#pragma HLS array_partition variable=tmp_tSeries_j cyclic factor=16
+
+#pragma HLS array_partition variable=tmp_df_i cyclic factor=16
+//#pragma HLS array_partition variable=tmp_df_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_dg_i cyclic factor=16
+//#pragma HLS array_partition variable=tmp_dg_j cyclic factor=16
+
+#pragma HLS array_partition variable=tmp_means_j cyclic factor=16
+
+#pragma HLS array_partition variable=tmp_norms_i cyclic factor=16
+#pragma HLS array_partition variable=tmp_norms_j cyclic factor=16
+
+#pragma HLS array_partition variable=tmp_covariances cyclic factor=16
+
+#pragma HLS array_partition variable=tmp_correlations cyclic factor=16
+#pragma HLS array_partition variable=tmp_profile_i cyclic factor=16
+#pragma HLS array_partition variable=tmp_profile_j cyclic factor=16
 
 
 DTYPE means_0 = means[0];
 
 // Go through diagonals
-main_loop: for (ITYPE diag = windowSize/4 + 1; diag < profileLength; diag++)
+main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_SIZE)
 {
   covariance = 0;
 
   i = 0;
   j = diag;
 
-  DTYPE tmpMeans1 = means[j];
 
+  // Copy mean of this diag to local variable
+ // DTYPE tmp_means_j[VDATA_SIZE]; = means[j];
 
-  dotp: for (ITYPE w = 0; w < windowSize; w+=VDATA_SIZE)
+  for (int k = 0; k < VDATA_SIZE; k++)
   {
-	  calculate_cov(tSeries_i, tSeries_j, &covariance,  tmpMeans1,  means_0,  w,  j);
+		#pragma HLS PIPELINE II=1
+    	tmp_covariances[k] = 0;
+  }
+  for (int k = 0; k < VDATA_SIZE; k++)
+  {
+		#pragma HLS PIPELINE II=1
+	  	tmp_means_j[k] = means[j+k];
   }
 
-  correlation = covariance * norms[i] * norms[j];
-
-  if (correlation > profile[0])
+  first_cov: for (ITYPE w = 0; w < windowSize; w++)
   {
-	profile[0] = correlation;
-	profileIndex[0] = j;
+	  	first_cov_l1:for (int k = 0; k < VDATA_SIZE; k++)
+	  	{
+	  		#pragma HLS PIPELINE II=1
+		  	tmp_tSeries_i[k] = tSeries_i[w];
+	  		tmp_tSeries_j[k] = tSeries_j[j + w + k];
+	  	}
+
+	  	first_cov_l2:for (int k = 0; k < VDATA_SIZE; k++)
+	  	{
+			#pragma HLS unroll factor=16
+	  		tmp_covariances[k] += ((tmp_tSeries_j[k] - tmp_means_j[k]) * (tmp_tSeries_i[k] - means_0));
+	  	}
   }
-  if (correlation > profile[j])
+
+
+  unsigned i_read_counter = VDATA_SIZE - 1;
+
+  diag:for (j = diag + 1; j < profileLength; j++)
   {
-	profile[j] = correlation;
-	profileIndex[j] = i;
-  }
-/*
-  i++;
 
-  j=diag+1;
-  diag:for (j = diag + 1; j < profileLength; j+= VDATA_SIZE)
-  {
-	norms_i_r:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		tmpVect1[k] = norms[i + k];
-	}
-	norms_j_r:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		tmpVect2[k] = norms[j + k];
-	}
+	 i_read_counter++;
 
-	covariance:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS unroll factor=64
-		tmpVect3[k] = covariance * tmpVect1[k] * tmpVect2[k];
-	}
+	 if(i_read_counter == VDATA_SIZE)
+	 {
+		 i_read_counter = 0;
 
-	profile_i_r:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		tmpVect1[k] = profile[i + k];
-	}
-
-	profile_j_r:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		tmpVect2[k] = profile[j + k];
-	}
-
-
-	update:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS unroll factor=64
-		if (tmpVect3[k] > tmpVect1[k])
+		read_i_data_loop_1:for(int k = 0; k < VDATA_SIZE; k++)
 		{
-		  tmpVect1[k] = tmpVect3[k];
-		  //profileIndex[i + k] = j + k;
+			#pragma HLS PIPELINE II=1
+			tmp_norms_i[k] = norms_i[i + k];
+			tmp_df_i[k]    = df_j[i + k];
+		}
+		read_i_data_loop_2:for(int k = 0; k < VDATA_SIZE; k++)
+		{
+			#pragma HLS PIPELINE II=1
+			tmp_profile_i[k] = profile_i[i + k];
+			tmp_dg_i[k]      = dg_j[i + k];
 		}
 
-		if (tmpVect3[k] > tmpVect2[k])
+	 }
+		read_norms_data:for(int k = 0; k < VDATA_SIZE; k++)
 		{
-			tmpVect2[k] = tmpVect3[k];
-		  //profileIndex[j + k] = i + k;
+				#pragma HLS PIPELINE II=1
+				tmp_norms_j[k] = norms_j[j + k];
 		}
+
+	    correlations:for (int k = 0; k < VDATA_SIZE; k++)
+		{
+			#pragma HLS unroll factor=16
+			tmp_correlations[k] = tmp_covariances[k] * tmp_norms_i[i_read_counter] * tmp_norms_j[k];
+		}
+
+	    update_covariances(df_i, dg_j, tmp_df_i[i_read_counter], tmp_dg_i[i_read_counter], tmp_covariances, j);
+
+		read_profile_data:for(int k = 0; k < VDATA_SIZE; k++)
+		{
+				#pragma HLS PIPELINE II=1
+				tmp_profile_j[k] = profile_j[j + k];
+		}
+
+	    update_profile(tmp_correlations, tmp_profile_j, profile_j, j);
+
+
+
+    	i++;
 	}
-
-	profile_i_w:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		profile[i + k] = tmpVect1[k];
-	}
-
-	profile_j_w:for (int k = 0; k < VDATA_SIZE; k++)
-	{
-		#pragma HLS PIPELINE II=1
-		profile[j + k] = tmpVect2[k];
-	}
-
-	i+=VDATA_SIZE;
-
-	 }*/
-  /*i = 1;
-
-
-  for (j = diag + 1; j < profileLength; j++)
-  {
-	covariance += (df[i - 1].data[0] * dg[j - 1].data[0] + df[j - 1].data[0] * dg[i - 1].data[0]);
-	correlation = covariance * norms[i].data[0] * norms[j].data[0];
-
-	if (correlation > profile[i].data[0])
-	{
-	  profile[i].data[0] = correlation;
-	  profileIndex[i].data[0] = j;
-	}
-
-	if (correlation > profile[j].data[0])
-	{
-	  profile[j].data[0] = correlation;
-	  profileIndex[j].data[0] = i;
-	}
-	i++;
-  }*/
-}
-}
+  }
+ }
 }

@@ -211,10 +211,147 @@ double run_krnl(cl::Context &context,
 				ITYPE profileLength, ITYPE numDiagonals, ITYPE windowSize) {
     cl_int err;
 
+
+    // Temporal profile and profileIndex
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size);
+
+    // Temporal profiles initialization
+    for(ITYPE i = 0; i < size; i++)
+    {
+    	profile_tmp_0[i] = -std::numeric_limits<DTYPE>::infinity();
+    	profile_tmp_1[i] = -std::numeric_limits<DTYPE>::infinity();
+    	profile_tmp_2[i] = -std::numeric_limits<DTYPE>::infinity();
+    	profile_tmp_3[i] = -std::numeric_limits<DTYPE>::infinity();
+
+    	profileIndex_tmp_0[i] = 0;
+    	profileIndex_tmp_1[i] = 0;
+    	profileIndex_tmp_2[i] = 0;
+    	profileIndex_tmp_3[i] = 0;
+    }
+
+
+    cout << "[HOST] Creating buffers...";
     // For Allocating Buffer to specific Global Memory Bank, user has to use cl_mem_ext_ptr_t
     // and provide the Banks
+    cl_mem_ext_ptr_t inBuffersExt[22];
+    cl_mem_ext_ptr_t inOutBuffersExt[8];
 
-    cl_mem_ext_ptr_t inBufExt1, inBufExt2, inBufExt3, inBufExt4, inBufExt5, inBufExt6, inBufExt7;
+    // Read-only buffers parameters
+    unsigned index = 0;
+    for(unsigned i = 0; i < 26; i++)
+    {
+    	if(i < 11 || i > 14)
+    	{
+    		inBuffersExt[index].param = 0;
+    		inBuffersExt[index].flags = bank[i];
+    		index++;
+    	}
+    }
+
+    inBuffersExt[0].obj  = source_tSeries.data();
+    inBuffersExt[1].obj  = source_means.data();
+    inBuffersExt[2].obj  = source_df.data();
+    inBuffersExt[3].obj  = source_dg.data();
+    inBuffersExt[4].obj  = source_norms.data();
+    inBuffersExt[5].obj  = source_df.data();
+    inBuffersExt[6].obj  = source_dg.data();
+    inBuffersExt[7].obj  = source_norms.data();
+    inBuffersExt[8].obj  = source_df.data();
+    inBuffersExt[9].obj  = source_dg.data();
+    inBuffersExt[10].obj = source_norms.data();
+    inBuffersExt[11].obj = source_tSeries.data();
+    inBuffersExt[12].obj = source_means.data();
+    inBuffersExt[13].obj = source_df.data();
+    inBuffersExt[14].obj = source_dg.data();
+    inBuffersExt[15].obj = source_norms.data();
+    inBuffersExt[16].obj = source_df.data();
+    inBuffersExt[17].obj = source_dg.data();
+    inBuffersExt[18].obj = source_norms.data();
+    inBuffersExt[19].obj = source_df.data();
+    inBuffersExt[20].obj = source_dg.data();
+    inBuffersExt[21].obj = source_norms.data();
+
+    // Read-Write buffers parameters
+    index = 0;
+    for(unsigned i = 11; i < 30; i++)
+    {
+    	if(i < 15 || i > 25)
+    	{
+    		inOutBuffersExt[index].param = 0;
+    		inOutBuffersExt[index].flags = bank[i];
+			index++;
+
+    	}
+    }
+
+
+    inOutBuffersExt[0].obj = profile_tmp_0.data();
+	inOutBuffersExt[1].obj = profileIndex_tmp_0.data();
+	inOutBuffersExt[2].obj = profile_tmp_1.data();
+	inOutBuffersExt[3].obj = profileIndex_tmp_1.data();
+    inOutBuffersExt[4].obj = profile_tmp_2.data();
+	inOutBuffersExt[5].obj = profileIndex_tmp_2.data();
+	inOutBuffersExt[6].obj = profile_tmp_3.data();
+	inOutBuffersExt[7].obj = profileIndex_tmp_3.data();
+
+
+	// Read-only buffers create
+	cl::Buffer buffers_input[22];
+	for(unsigned i = 0; i < 22; i++)
+	{
+		if(i < 5 || (i > 10 && i <16 && i!=12))
+		{
+		buffers_input[i] = cl::Buffer (context,
+			    					   CL_MEM_READ_ONLY |
+									   CL_MEM_EXT_PTR_XILINX |
+									   CL_MEM_USE_HOST_PTR,
+									   sizeof(DTYPE) * size,
+									   &inBuffersExt[i],
+									   &err);
+		}
+	    //OCL_CHECK(err, buffers_input[i]);
+	}
+
+	// Read-Write buffers create
+	cl::Buffer buffers_inout[8];
+
+	for(unsigned i = 0; i < 8; i++)
+	{
+		if(i < 2 || (i > 3 && i <6))
+		{
+		if(i % 2 == 0)
+		{
+			buffers_inout[i] = cl::Buffer (context,
+               	   									 CL_MEM_READ_WRITE |
+													 CL_MEM_EXT_PTR_XILINX |
+													 CL_MEM_USE_HOST_PTR,
+													 sizeof(DTYPE) * size,
+													 &inOutBuffersExt[i],
+													 &err);
+		}
+		else
+		{
+			buffers_inout[i] = cl::Buffer (context,
+               	   									 CL_MEM_READ_WRITE |
+													 CL_MEM_EXT_PTR_XILINX |
+													 CL_MEM_USE_HOST_PTR,
+													 sizeof(ITYPE) * size,
+													 &inOutBuffersExt[i],
+													 &err);
+		}
+		//OCL_CHECK(err, buffers_inout[i]);
+		}
+	}
+
+
+    /*cl_mem_ext_ptr_t inBufExt1, inBufExt2, inBufExt3, inBufExt4, inBufExt5, inBufExt6, inBufExt7;
     cl_mem_ext_ptr_t inoutBufExt1, inoutBufExt2;
 
     inBufExt1.obj = source_tSeries.data();
@@ -318,29 +455,54 @@ double run_krnl(cl::Context &context,
 											sizeof(ITYPE) * size,
 											&inoutBufExt2,
 											&err));
+	*/
     cout << "OK." << endl;
     //Setting the kernel Arguments
-    OCL_CHECK(err, err = (kernel).setArg(0,  buffer_input1));
-    OCL_CHECK(err, err = (kernel).setArg(1,  buffer_input7));
-    OCL_CHECK(err, err = (kernel).setArg(2,  buffer_input2));
-    OCL_CHECK(err, err = (kernel).setArg(3,  buffer_input3));
-    OCL_CHECK(err, err = (kernel).setArg(4,  buffer_input4));
-    OCL_CHECK(err, err = (kernel).setArg(5,  buffer_input5));
-    OCL_CHECK(err, err = (kernel).setArg(6,  buffer_input6));
-    OCL_CHECK(err, err = (kernel).setArg(7,  buffer_inout1));
-    OCL_CHECK(err, err = (kernel).setArg(8,  buffer_inout2));
-    OCL_CHECK(err, err = (kernel).setArg(9,  profileLength));
-    OCL_CHECK(err, err = (kernel).setArg(10,  numDiagonals));
-    OCL_CHECK(err, err = (kernel).setArg(11, windowSize));
+	// krnl_scamp(tSeries_i, tSeries_j, means, norms_i, norms_j,
+	//   		  df_i, df_j, dg_i, dg_j, profile_i, profile_j,
+	//			  profileIndex_i, profileIndex_j, profileLength,
+	//			  numDiagonals, windowSize);
+
+    OCL_CHECK(err, err = (kernel).setArg(0,  buffers_input[0]));  // tSeries_i
+    OCL_CHECK(err, err = (kernel).setArg(1,  buffers_input[11])); // tSeries_j
+    OCL_CHECK(err, err = (kernel).setArg(2,  buffers_input[1]));  // means
+    OCL_CHECK(err, err = (kernel).setArg(3,  buffers_input[4]));  // norms_i
+    OCL_CHECK(err, err = (kernel).setArg(4,  buffers_input[15])); // norms_j
+    OCL_CHECK(err, err = (kernel).setArg(5,  buffers_input[2]));  // df_i
+    OCL_CHECK(err, err = (kernel).setArg(6,  buffers_input[13])); // df_j
+    OCL_CHECK(err, err = (kernel).setArg(7,  buffers_input[3]));  // dg_i
+    OCL_CHECK(err, err = (kernel).setArg(8,  buffers_input[14])); // dg_j
+    OCL_CHECK(err, err = (kernel).setArg(9,  buffers_inout[0]));  // profile_i
+    OCL_CHECK(err, err = (kernel).setArg(10, buffers_inout[4]));  // profile_j
+    OCL_CHECK(err, err = (kernel).setArg(11, buffers_inout[1]));  // profileIndex_i
+    OCL_CHECK(err, err = (kernel).setArg(12, buffers_inout[5]));  // profileIndex_j
+    OCL_CHECK(err, err = (kernel).setArg(13, profileLength));	  // profileLength
+    OCL_CHECK(err, err = (kernel).setArg(14, numDiagonals));	  // numDiagonals
+    OCL_CHECK(err, err = (kernel).setArg(15, windowSize));		  // windowSize
 
     // Copy input data to Device Global Memory
     cout << "[HOST] Copying data to device...";
-    OCL_CHECK(err,
-              err = q.enqueueMigrateMemObjects({buffer_input1, buffer_input2,
-    											buffer_input3, buffer_input4,
-												buffer_input5, buffer_input6,buffer_input7,
-												buffer_inout1, buffer_inout2},
-                                                0 /* 0 means from host*/));
+	for(unsigned i = 0; i < 22; i++)
+	{
+		if(i < 5 || (i > 10 && i <16 && i!=12))
+		{
+	    OCL_CHECK(err,
+	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
+	                                                0 /* 0 means from host*/));
+
+		}
+	}
+	for(unsigned i = 0; i < 8; i++)
+	{
+		if(i < 2 || (i > 3 && i < 6))
+		{
+
+	    OCL_CHECK(err,
+	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
+	                                                0 /* 0 means from host*/));
+		}
+	}
+
     q.finish();
     cout << "OK." << endl;
 
@@ -356,10 +518,46 @@ double run_krnl(cl::Context &context,
 
     // Copy Result from Device Global Memory to Host Local Memory
     cout << "[HOST] Copying data from device...";
-    OCL_CHECK(err,
+	for(unsigned i = 0; i < 8; i++)
+	{
+		if(i < 2 || (i > 3 && i < 6))
+		{
+	    OCL_CHECK(err,
+	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
+	            		  	  	  	  	  	  	  CL_MIGRATE_MEM_OBJECT_HOST));
+		}
+	}
+    /*OCL_CHECK(err,
              err = q.enqueueMigrateMemObjects({buffer_inout1, buffer_inout2},
-                                               CL_MIGRATE_MEM_OBJECT_HOST));
+                                               CL_MIGRATE_MEM_OBJECT_HOST));*/
     q.finish();
+
+
+    // Profile reduction
+    for(ITYPE i = 0; i < size; i++)
+    {
+    	if (profile_tmp_0[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_0[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_0[i];
+    	}
+
+    	if (profile_tmp_1[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_1[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_1[i];
+    	}
+    	if (profile_tmp_2[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_2[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_2[i];
+    	}
+    	if (profile_tmp_3[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_3[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_3[i];
+    	}
+    }
     cout << "OK." << endl;
     return kernel_time.count();
 }
@@ -482,7 +680,7 @@ int main(int argc, char *argv[]) {
 
     double kernel_time_in_sec = 0;
     bool match = true;
-    const int numBuf = 9; // Since four buffers are being used
+    const int numBuf = 30; // Since 30 buffers are being used
     int bank_assign[numBuf];
 
     for (int j = 0; j < numBuf; j++) {
