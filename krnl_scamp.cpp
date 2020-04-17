@@ -35,8 +35,9 @@ Description:
 
 #include "scamp.h"
 #include <limits>
+#include <cstring>
 
-#define VDATA_SIZE 32
+#define VDATA_SIZE 128
 #define IDATA_SIZE 16
 
 //TRIPCOUNT indentifier
@@ -53,15 +54,16 @@ typedef struct v_intdatatype {
 extern "C" {
 
 
-void update_covariances(const DTYPE * df, const DTYPE * dg,
+/*void update_covariances(const DTYPE * df, const DTYPE * dg,
 		const DTYPE df_i, const DTYPE dg_i, DTYPE * tmp_covariances,
 		const ITYPE j)
 {
+#pragma HLS inline
 	DTYPE tmp_df_j[VDATA_SIZE];
 	DTYPE tmp_dg_j[VDATA_SIZE];
 
-	#pragma HLS array_partition variable=tmp_df_j complete
-	#pragma HLS array_partition variable=tmp_dg_j complete
+	#pragma HLS array_partition variable=tmp_df_j cyclic factor=32
+	#pragma HLS array_partition variable=tmp_dg_j cyclic factor=32
 
 
 	//#pragma HLS dataflow
@@ -81,17 +83,17 @@ void update_covariances(const DTYPE * df, const DTYPE * dg,
 
 void update_profile(const DTYPE * tmp_correlations, DTYPE * tmp_profile_j, DTYPE * profile_j, ITYPE j)
 {
-
+	#pragma HLS inline
 	//DTYPE tmp_profile_j[VDATA_SIZE];
-    #pragma HLS array_partition variable=tmp_profile_j cyclic factor=16
+    //#pragma HLS array_partition variable=tmp_profile_j complete factor=16
 
 	calculate_updates:for (int k = 0; k < VDATA_SIZE; k++)
 	{
-			#pragma HLS unroll factor=16
-			/*if (tmp_correlations[k] > tmp_profile_i[0])
+			#pragma HLS unroll factor=32
+			if (tmp_correlations[k] > tmp_profile_i[0])
 			{
 				tmp_profile_i[0] = tmp_correlations[k];
-			}*/
+			}
 
 			if (tmp_correlations[k] > tmp_profile_j[k])
 			{
@@ -106,7 +108,7 @@ void update_profile(const DTYPE * tmp_correlations, DTYPE * tmp_profile_j, DTYPE
 			profile_j[j + k] = tmp_profile_j[k];
 		}
 
-}
+}*/
 
 /*void do_diagonal(const DTYPE * norms_0, DTYPE * tmp_covariances, const DTYPE * tmp_norms_i,
 		)
@@ -146,6 +148,93 @@ void update_profile(const DTYPE * tmp_correlations, DTYPE * tmp_profile_j, DTYPE
 
 
 }*/
+
+
+/*void get_first_cov_data(ITYPE * i_read_counter, ITYPE w, ITYPE j,const DTYPE * tSeries_i, const DTYPE * tSeries_j,
+		 DTYPE *  tmp_tSeries_i,  DTYPE *  tmp_tSeries_j)
+{
+	 if(i_read_counter == VDATA_SIZE)
+	 {
+		 *i_read_counter = 0;
+
+		// memcpy(tmp_tSeries_i, &tSeries_i[w], VDATA_SIZE * sizeof(DTYPE));
+		read_cov_data_loop_1:for(int k = 0; k < VDATA_SIZE; k++)
+		{
+			#pragma HLS PIPELINE II=1
+			tmp_tSeries_i[k] = tSeries_i[w + k];
+		}
+
+	 }
+
+	//memcpy(tmp_tSeries_j, &tSeries_j[j + w], VDATA_SIZE * sizeof(DTYPE));
+ 	first_cov_l1:for (int k = 0; k < VDATA_SIZE; k++)
+ 	{
+ 		#pragma HLS PIPELINE II=1
+ 		tmp_tSeries_j[k] = tSeries_j[j + w + k];
+ 	}
+
+
+}*/
+
+
+void write_diag_data(ITYPE i, ITYPE j,
+					const DTYPE * tmp_profile_i, DTYPE * profile_i,
+					const DTYPE * tmp_profile_j, DTYPE * profile_j)
+{
+	write_back:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+				#pragma HLS PIPELINE II=1
+				profile_i[i + k] = tmp_profile_i[i];
+				profile_j[j + k] = tmp_profile_j[k];
+	}
+
+
+}
+
+void read_diag_data(ITYPE * i_read_counter, const ITYPE i, const ITYPE j,
+		const DTYPE * norms_i, DTYPE * tmp_norms_i,
+		const DTYPE * norms_j, DTYPE * tmp_norms_j,
+		const DTYPE * df_i,    DTYPE * tmp_df_i,
+		const DTYPE * df_j,    DTYPE * tmp_df_j,
+		const DTYPE * dg_i,    DTYPE * tmp_dg_i,
+		const DTYPE * dg_j,    DTYPE * tmp_dg_j,
+		const DTYPE * profile_i, DTYPE * tmp_profile_i,
+		const DTYPE * profile_j, DTYPE * tmp_profile_j)
+{
+	 if(*i_read_counter == VDATA_SIZE)
+	 {
+		 *i_read_counter = 0;
+
+			read_norms_profile_i:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+				#pragma HLS PIPELINE II=1
+				tmp_norms_i[k] = norms_j[i+k];
+				tmp_profile_i[k] = profile_i[i+k];
+			}
+
+			read_df_dg_i:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+				#pragma HLS PIPELINE II=1
+				tmp_df_i[k] = df_i[i+k];
+				tmp_dg_i[k] = dg_j[i+k];
+			}
+
+	 }
+
+	read_norms_profile_j:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS PIPELINE II=1
+		tmp_norms_j[k] = norms_i[j+k];
+		tmp_profile_j[k] = profile_j[j+k];
+	}
+
+	read_df_dg_j:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS PIPELINE II=1
+		tmp_df_j[k] = df_i[j+k];
+		tmp_dg_j[k] = dg_j[j+k];
+	}
+}
 
 void krnl_scamp(const DTYPE *tSeries_i, 	// Time Series input 1
 				const DTYPE *tSeries_j, 	// Time Series input 1
@@ -219,10 +308,10 @@ DTYPE tmp_norms_i[VDATA_SIZE];
 DTYPE tmp_norms_j[VDATA_SIZE];
 
 DTYPE tmp_df_i[VDATA_SIZE];
-//DTYPE tmp_df_j[VDATA_SIZE];
+DTYPE tmp_df_j[VDATA_SIZE];
 
 DTYPE tmp_dg_i[VDATA_SIZE];
-//DTYPE tmp_dg_j[VDATA_SIZE];
+DTYPE tmp_dg_j[VDATA_SIZE];
 
 
 DTYPE tmp_covariances[VDATA_SIZE];
@@ -231,24 +320,24 @@ DTYPE tmp_profile_i[VDATA_SIZE];
 DTYPE tmp_profile_j[VDATA_SIZE];
 
 
-#pragma HLS array_partition variable=tmp_tSeries_i cyclic factor=16
-#pragma HLS array_partition variable=tmp_tSeries_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_tSeries_i cyclic factor=64
+#pragma HLS array_partition variable=tmp_tSeries_j cyclic factor=64
 
-#pragma HLS array_partition variable=tmp_df_i cyclic factor=16
-//#pragma HLS array_partition variable=tmp_df_j cyclic factor=16
-#pragma HLS array_partition variable=tmp_dg_i cyclic factor=16
-//#pragma HLS array_partition variable=tmp_dg_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_df_i cyclic factor=64
+#pragma HLS array_partition variable=tmp_df_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_dg_i cyclic factor=64
+#pragma HLS array_partition variable=tmp_dg_j cyclic factor=64
 
-#pragma HLS array_partition variable=tmp_means_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_means_j cyclic factor=64
 
-#pragma HLS array_partition variable=tmp_norms_i cyclic factor=16
-#pragma HLS array_partition variable=tmp_norms_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_norms_i cyclic factor=64
+#pragma HLS array_partition variable=tmp_norms_j cyclic factor=64
 
-#pragma HLS array_partition variable=tmp_covariances cyclic factor=16
+#pragma HLS array_partition variable=tmp_covariances cyclic factor=64
 
-#pragma HLS array_partition variable=tmp_correlations cyclic factor=16
-#pragma HLS array_partition variable=tmp_profile_i cyclic factor=16
-#pragma HLS array_partition variable=tmp_profile_j cyclic factor=16
+#pragma HLS array_partition variable=tmp_correlations cyclic factor=64
+#pragma HLS array_partition variable=tmp_profile_i cyclic factor=64
+#pragma HLS array_partition variable=tmp_profile_j cyclic factor=64
 
 
 DTYPE means_0 = means[0];
@@ -276,73 +365,128 @@ main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_
 	  	tmp_means_j[k] = means[j+k];
   }
 
+  unsigned i_read_counter = VDATA_SIZE - 1;
+
   first_cov: for (ITYPE w = 0; w < windowSize; w++)
   {
-	  	first_cov_l1:for (int k = 0; k < VDATA_SIZE; k++)
-	  	{
-	  		#pragma HLS PIPELINE II=1
-		  	tmp_tSeries_i[k] = tSeries_i[w];
-	  		tmp_tSeries_j[k] = tSeries_j[j + w + k];
-	  	}
+	  	i_read_counter++;
+
+	  	if(i_read_counter == VDATA_SIZE)
+		 {
+			 i_read_counter = 0;
+			 memcpy(tmp_tSeries_i, &tSeries_j[w], sizeof(DTYPE) * VDATA_SIZE);
+		 }
+	  	memcpy(tmp_tSeries_j, &tSeries_j[j + w], sizeof(DTYPE) * VDATA_SIZE);
 
 	  	first_cov_l2:for (int k = 0; k < VDATA_SIZE; k++)
 	  	{
-			#pragma HLS unroll factor=16
-	  		tmp_covariances[k] += ((tmp_tSeries_j[k] - tmp_means_j[k]) * (tmp_tSeries_i[k] - means_0));
+			#pragma HLS unroll factor=32
+	  		tmp_covariances[k] += ((tmp_tSeries_j[k] - tmp_means_j[k]) * (tmp_tSeries_i[i_read_counter] - means_0));
 	  	}
   }
 
 
-  unsigned i_read_counter = VDATA_SIZE - 1;
+  i_read_counter = VDATA_SIZE - 1;
 
   diag:for (j = diag + 1; j < profileLength; j++)
   {
+	#pragma HLS PIPELINE II=1
 
 	 i_read_counter++;
 
+
+	 read_diag_data(&i_read_counter, i, j,
+	 		norms_i, tmp_norms_i,
+	 		norms_j,  tmp_norms_j,
+	 		df_i,     tmp_df_i,
+	 		df_j,    tmp_df_j,
+	 		dg_i,    tmp_dg_i,
+	 		dg_j,    tmp_dg_j,
+	 		profile_i,  tmp_profile_i,
+	 		profile_j,  tmp_profile_j);
+
+
+	 /*
 	 if(i_read_counter == VDATA_SIZE)
 	 {
 		 i_read_counter = 0;
 
-		read_i_data_loop_1:for(int k = 0; k < VDATA_SIZE; k++)
-		{
-			#pragma HLS PIPELINE II=1
-			tmp_norms_i[k] = norms_i[i + k];
-			tmp_df_i[k]    = df_j[i + k];
-		}
-		read_i_data_loop_2:for(int k = 0; k < VDATA_SIZE; k++)
-		{
-			#pragma HLS PIPELINE II=1
-			tmp_profile_i[k] = profile_i[i + k];
-			tmp_dg_i[k]      = dg_j[i + k];
-		}
+			read_norms_profile_i:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+				#pragma HLS PIPELINE II=1
+				tmp_norms_i[k] = norms_j[i+k];
+				tmp_profile_i[k] = profile_i[i+k];
+			}
+
+			read_df_dg_i:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+				#pragma HLS PIPELINE II=1
+				tmp_df_i[k] = df_i[i+k];
+				tmp_dg_i[k] = dg_j[i+k];
+			}
 
 	 }
-		read_norms_data:for(int k = 0; k < VDATA_SIZE; k++)
-		{
+
+	read_norms_profile_j:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS PIPELINE II=1
+		tmp_norms_j[k] = norms_i[j+k];
+		tmp_profile_j[k] = profile_j[j+k];
+	}
+
+	read_df_dg_j:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS PIPELINE II=1
+		tmp_df_j[k] = df_i[j+k];
+		tmp_dg_j[k] = dg_j[j+k];
+	}
+
+*/
+	 correlations:for (int k = 0; k < VDATA_SIZE; k++)
+	 {
+		  #pragma HLS unroll factor=32
+		  #pragma HLS pipeline II=1
+		 tmp_correlations[k] = tmp_covariances[k] * tmp_norms_i[i_read_counter] * tmp_norms_j[k];
+	 }
+
+	 //update_covariances(df_i, dg_j, tmp_df_i[i_read_counter], tmp_dg_i[i_read_counter], tmp_covariances, j);
+
+	covariances_update:for(int k = 0; k < VDATA_SIZE; k++)
+	{
+		#pragma HLS unroll factor=32
+		tmp_covariances[k] += (tmp_df_i[i_read_counter] * tmp_dg_j[j + k]) + (tmp_df_j[j + k] * tmp_dg_i[i_read_counter]) ;
+	}
+
+	// update_profile(tmp_correlations, tmp_profile_j, profile_j, j);
+
+
+	calculate_updates:for (int k = 0; k < VDATA_SIZE; k++)
+	{
+			#pragma HLS unroll factor=32
+			#pragma HLS pipeline II=1
+				if (tmp_correlations[k] > tmp_profile_i[k])
+				{
+					tmp_profile_i[k] = tmp_correlations[k];
+				}
+				if (tmp_correlations[k] > tmp_profile_j[k])
+				{
+					tmp_profile_j[k] = tmp_correlations[k];
+				}
+	}
+
+	write_diag_data(i, j,
+						tmp_profile_i, profile_i,
+						tmp_profile_j,  profile_j);
+
+
+	/*write_back:for (int k = 0; k < VDATA_SIZE; k++)
+	{
 				#pragma HLS PIPELINE II=1
-				tmp_norms_j[k] = norms_j[j + k];
-		}
+				profile_i[i + k] = tmp_profile_i[i];
+				profile_j[j + k] = tmp_profile_j[k];
+	}*/
 
-	    correlations:for (int k = 0; k < VDATA_SIZE; k++)
-		{
-			#pragma HLS unroll factor=16
-			tmp_correlations[k] = tmp_covariances[k] * tmp_norms_i[i_read_counter] * tmp_norms_j[k];
-		}
-
-	    update_covariances(df_i, dg_j, tmp_df_i[i_read_counter], tmp_dg_i[i_read_counter], tmp_covariances, j);
-
-		read_profile_data:for(int k = 0; k < VDATA_SIZE; k++)
-		{
-				#pragma HLS PIPELINE II=1
-				tmp_profile_j[k] = profile_j[j + k];
-		}
-
-	    update_profile(tmp_correlations, tmp_profile_j, profile_j, j);
-
-
-
-    	i++;
+	 i++;
 	}
   }
  }

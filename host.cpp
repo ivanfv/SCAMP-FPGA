@@ -106,7 +106,6 @@ void preprocess(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 
 
 void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
-				std::vector<ITYPE, aligned_allocator<ITYPE>> &diagonals,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &means,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &norms,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &df,
@@ -199,7 +198,6 @@ double run_krnl(cl::Context &context,
                 cl::CommandQueue &q,
                 cl::Kernel &kernel,
                 std::vector<DTYPE, aligned_allocator<DTYPE>> &source_tSeries,
-				std::vector<ITYPE, aligned_allocator<ITYPE>> &source_diagonals,
                 std::vector<DTYPE, aligned_allocator<DTYPE>> &source_means,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &source_norms,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &source_df,
@@ -210,7 +208,6 @@ double run_krnl(cl::Context &context,
                 ITYPE size,
 				ITYPE profileLength, ITYPE numDiagonals, ITYPE windowSize) {
     cl_int err;
-
 
     // Temporal profile and profileIndex
     std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size);
@@ -308,15 +305,10 @@ double run_krnl(cl::Context &context,
 	{
 		if(i < 5 || (i > 10 && i <16 && i!=12))
 		{
-		buffers_input[i] = cl::Buffer (context,
-			    					   CL_MEM_READ_ONLY |
-									   CL_MEM_EXT_PTR_XILINX |
-									   CL_MEM_USE_HOST_PTR,
-									   sizeof(DTYPE) * size,
-									   &inBuffersExt[i],
-									   &err);
+		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
+									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
+									   sizeof(DTYPE) * size, &inBuffersExt[i], &err);
 		}
-	    //OCL_CHECK(err, buffers_input[i]);
 	}
 
 	// Read-Write buffers create
@@ -351,111 +343,6 @@ double run_krnl(cl::Context &context,
 	}
 
 
-    /*cl_mem_ext_ptr_t inBufExt1, inBufExt2, inBufExt3, inBufExt4, inBufExt5, inBufExt6, inBufExt7;
-    cl_mem_ext_ptr_t inoutBufExt1, inoutBufExt2;
-
-    inBufExt1.obj = source_tSeries.data();
-    inBufExt1.param = 0;
-    inBufExt1.flags = bank[0];
-
-    inBufExt2.obj = source_diagonals.data();
-    inBufExt2.param = 0;
-    inBufExt2.flags = bank[1];
-
-    inBufExt3.obj = source_means.data();
-    inBufExt3.param = 0;
-    inBufExt3.flags = bank[2];
-
-    inBufExt4.obj = source_norms.data();
-    inBufExt4.param = 0;
-    inBufExt4.flags = bank[3];
-
-    inBufExt5.obj = source_df.data();
-    inBufExt5.param = 0;
-    inBufExt5.flags = bank[4];
-
-    inBufExt6.obj = source_dg.data();
-    inBufExt6.param = 0;
-    inBufExt6.flags = bank[5];
-
-    inBufExt7.obj = source_tSeries.data();
-    inBufExt7.param = 0;
-    inBufExt7.flags = bank[8];
-
-    inoutBufExt1.obj = source_hw_profile.data();
-    inoutBufExt1.param = 0;
-    inoutBufExt1.flags = bank[6];
-
-    inoutBufExt2.obj = source_hw_profileIndex.data();
-    inoutBufExt2.param = 0;
-    inoutBufExt2.flags = bank[7];
-
-    // Creating Buffers
-    cout << "[HOST] Creating buffers...";
-    OCL_CHECK(err, cl::Buffer buffer_input1(context,
-    										CL_MEM_READ_ONLY |
-                                            CL_MEM_EXT_PTR_XILINX |
-                                            CL_MEM_USE_HOST_PTR,
-										    sizeof(DTYPE) * size,
-										   	&inBufExt1,
-										   	&err));
-    OCL_CHECK(err, cl::Buffer buffer_input2(context,
-                                        	CL_MEM_READ_ONLY |
-                                            CL_MEM_EXT_PTR_XILINX |
-                                            CL_MEM_USE_HOST_PTR,
-											sizeof(ITYPE) * size,
-											&inBufExt2,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_input3(context,
-    										CL_MEM_READ_ONLY |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inBufExt3,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_input4(context,
-    										CL_MEM_READ_ONLY |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inBufExt4,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_input5(context,
-    										CL_MEM_READ_ONLY |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inBufExt5,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_input6(context,
-    										CL_MEM_READ_ONLY |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inBufExt6,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_input7(context,
-    										CL_MEM_READ_ONLY |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inBufExt7,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_inout1(context,
-                                       	   	CL_MEM_READ_WRITE |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(DTYPE) * size,
-											&inoutBufExt1,
-											&err));
-    OCL_CHECK(err, cl::Buffer buffer_inout2(context,
-                                       	   	CL_MEM_READ_WRITE |
-											CL_MEM_EXT_PTR_XILINX |
-											CL_MEM_USE_HOST_PTR,
-											sizeof(ITYPE) * size,
-											&inoutBufExt2,
-											&err));
-	*/
     cout << "OK." << endl;
     //Setting the kernel Arguments
 	// krnl_scamp(tSeries_i, tSeries_j, means, norms_i, norms_j,
@@ -627,14 +514,12 @@ int main(int argc, char *argv[]) {
     std::vector<ITYPE, aligned_allocator<ITYPE>> source_hw_profileIndex	(dataSize);
     std::vector<DTYPE, aligned_allocator<DTYPE>> source_sw_profile    	(dataSize);
     std::vector<ITYPE, aligned_allocator<ITYPE>> source_sw_profileIndex	(dataSize);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> source_diagonals	 	(dataSize);
 
     // Prepare data
     ITYPE timeSeriesLength = dataSize;
 	ITYPE windowSize = 256;
 	ITYPE exclusionZone = windowSize / 4;
 	ITYPE profileLength = timeSeriesLength - windowSize + 1;;
-
 
 	int min = 5;
 	int max = 100;
@@ -646,12 +531,6 @@ int main(int argc, char *argv[]) {
 	}
 
     preprocess(source_tSeries, source_means, source_norms, source_df,source_dg,profileLength, windowSize);
-
-    source_diagonals.clear();
-    for (ITYPE i = exclusionZone+1; i < profileLength; i++)
-      source_diagonals.push_back(i);
-
-//    std::random_shuffle(diagonals.begin(), diagonals.end());
 
     //end of data preparation
 
@@ -669,10 +548,10 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> host_time(0);
     auto host_start = std::chrono::high_resolution_clock::now();
 
-    scamp_host(source_tSeries,source_diagonals,source_means, source_norms,
+    scamp_host(source_tSeries,source_means, source_norms,
     		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
 			profileLength, exclusionZone, windowSize);
-
+    // cambiar a steady clock
     auto host_end = std::chrono::high_resolution_clock::now();
     host_time = std::chrono::duration<double>(host_end - host_start);
 
@@ -691,7 +570,6 @@ int main(int argc, char *argv[]) {
                                   q,
                                   kernel_scamp,
                                   source_tSeries,
-								  source_diagonals,
                                   source_means,
 								  source_norms,
 								  source_df,
@@ -701,7 +579,7 @@ int main(int argc, char *argv[]) {
                                   bank_assign,
                                   dataSize,
 								  profileLength,
-								  source_diagonals.size(),
+								  source_tSeries.size(),
 								  windowSize);
 
     match = verify(source_sw_profile, source_hw_profile, source_sw_profileIndex, source_hw_profileIndex ,dataSize);
