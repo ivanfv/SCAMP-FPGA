@@ -34,17 +34,20 @@ Description:
 *******************************************************************************/
 
 #include "scamp.h"
-#include <limits>
 #include <cstring>
+#include "ap_int.h"
 
 #define VDATA_SIZE 128
 #define IDATA_SIZE 16
+#define ARRAY_PARTITION 32
+#define LOOP_UNROLLING 32
 
-//TRIPCOUNT indentifier
-const unsigned int c_dt_size = VDATA_SIZE;
+const unsigned int vector_data_size = VDATA_SIZE;
+const unsigned int array_partition 	= ARRAY_PARTITION;
+const unsigned int loop_unrolling 	= ARRAY_PARTITION;
 
 typedef struct v_datatype {
-    DTYPE data[VDATA_SIZE];
+    ap_int<32> data[16];
 } v_dt;
 
 typedef struct v_intdatatype {
@@ -287,8 +290,8 @@ void krnl_scamp(const DTYPE *tSeries_i, 	// Time Series input 1
 
 //#pragma HLS array_partition variable=tSeries block factor=2
 //#pragma HLS array_partition variable=norms block factor=2
-//#pragma HLS DATA_PACK variable = tSeries
-//#pragma HLS DATA_PACK variable = diagonals
+#pragma HLS DATA_PACK variable = df_i
+#pragma HLS DATA_PACK variable = dg_j
 //#pragma HLS DATA_PACK variable = means
 //#pragma HLS DATA_PACK variable = norms
 //#pragma HLS DATA_PACK variable = df
@@ -320,24 +323,24 @@ DTYPE tmp_profile_i[VDATA_SIZE];
 DTYPE tmp_profile_j[VDATA_SIZE];
 
 
-#pragma HLS array_partition variable=tmp_tSeries_i cyclic factor=64
-#pragma HLS array_partition variable=tmp_tSeries_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_tSeries_i cyclic factor=c_dt_size
+#pragma HLS array_partition variable=tmp_tSeries_j cyclic factor=32
 
-#pragma HLS array_partition variable=tmp_df_i cyclic factor=64
-#pragma HLS array_partition variable=tmp_df_j cyclic factor=64
-#pragma HLS array_partition variable=tmp_dg_i cyclic factor=64
-#pragma HLS array_partition variable=tmp_dg_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_df_i cyclic factor=32
+#pragma HLS array_partition variable=tmp_df_j cyclic factor=32
+#pragma HLS array_partition variable=tmp_dg_i cyclic factor=32
+#pragma HLS array_partition variable=tmp_dg_j cyclic factor=32
 
-#pragma HLS array_partition variable=tmp_means_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_means_j cyclic factor=32
 
-#pragma HLS array_partition variable=tmp_norms_i cyclic factor=64
-#pragma HLS array_partition variable=tmp_norms_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_norms_i cyclic factor=32
+#pragma HLS array_partition variable=tmp_norms_j cyclic factor=32
 
-#pragma HLS array_partition variable=tmp_covariances cyclic factor=64
+#pragma HLS array_partition variable=tmp_covariances cyclic factor=32
 
-#pragma HLS array_partition variable=tmp_correlations cyclic factor=64
-#pragma HLS array_partition variable=tmp_profile_i cyclic factor=64
-#pragma HLS array_partition variable=tmp_profile_j cyclic factor=64
+#pragma HLS array_partition variable=tmp_correlations cyclic factor=32
+#pragma HLS array_partition variable=tmp_profile_i cyclic factor=32
+#pragma HLS array_partition variable=tmp_profile_j cyclic factor=32
 
 
 DTYPE means_0 = means[0];
@@ -390,12 +393,12 @@ main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_
 
   diag:for (j = diag + 1; j < profileLength; j++)
   {
-	#pragma HLS PIPELINE II=1
+	//#pragma HLS PIPELINE II=1
 
 	 i_read_counter++;
 
 
-	 read_diag_data(&i_read_counter, i, j,
+	/* read_diag_data(&i_read_counter, i, j,
 	 		norms_i, tmp_norms_i,
 	 		norms_j,  tmp_norms_j,
 	 		df_i,     tmp_df_i,
@@ -405,8 +408,8 @@ main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_
 	 		profile_i,  tmp_profile_i,
 	 		profile_j,  tmp_profile_j);
 
+*/
 
-	 /*
 	 if(i_read_counter == VDATA_SIZE)
 	 {
 		 i_read_counter = 0;
@@ -441,7 +444,7 @@ main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_
 		tmp_dg_j[k] = dg_j[j+k];
 	}
 
-*/
+
 	 correlations:for (int k = 0; k < VDATA_SIZE; k++)
 	 {
 		  #pragma HLS unroll factor=32
@@ -474,17 +477,17 @@ main_loop: for(ITYPE diag = windowSize/4 + 1; diag < profileLength; diag+=VDATA_
 				}
 	}
 
-	write_diag_data(i, j,
+	/*write_diag_data(i, j,
 						tmp_profile_i, profile_i,
-						tmp_profile_j,  profile_j);
+						tmp_profile_j,  profile_j);*/
 
 
-	/*write_back:for (int k = 0; k < VDATA_SIZE; k++)
+	write_back:for (int k = 0; k < VDATA_SIZE; k++)
 	{
 				#pragma HLS PIPELINE II=1
 				profile_i[i + k] = tmp_profile_i[i];
 				profile_j[j + k] = tmp_profile_j[k];
-	}*/
+	}
 
 	 i++;
 	}
