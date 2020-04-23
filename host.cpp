@@ -125,29 +125,27 @@ void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	      {
 	        covariance += ((tSeries[diag + i] - means[diag]) * (tSeries[i] - means[0]));
 	      }
+	        correlation = covariance *norms[0] * norms[diag];
 
-	      int i = 0;
-	      int j = diag;
+	      ITYPE i = 0;
+	        if (correlation > profile[i])
+	        {
+	          profile[i] = correlation;
+	          profileIndex[i] = diag;
+	        }
 
-	      correlation = covariance * norms[i] * norms[j];
+	        if (correlation > profile[diag])
+	        {
+	          profile[diag] = correlation;
+	          profileIndex[diag] = i;
+	        }
 
-	      if (correlation > profile[i])
-	      {
-	        profile[i] = correlation;
-	        profileIndex[i] = j;
-	      }
-	      if (correlation > profile[j])
-	      {
-	        profile[j] = correlation;
-	        profileIndex[j] = i;
-	      }
 
-/*	      i = 1;
-
+	      i++;
 	      for (ITYPE j = diag + 1; j < profileLength; j++)
 	      {
-	        //covariance += (df[i - 1] * dg[j - 1] + df[j - 1] * dg[i - 1]);
-	        correlation = covariance * norms[i] * norms[j];
+	    	  covariance += (df[i-1] * dg[j-1]) + (df[j-1] * dg[i-1]);
+	        correlation = covariance *norms[i] * norms[j];
 
 	        if (correlation > profile[i])
 	        {
@@ -161,7 +159,7 @@ void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	          profileIndex[j] = i;
 	        }
 	        i++;
-	      }*/
+	      }
 	    }
 }
 
@@ -173,14 +171,15 @@ bool verify(std::vector<DTYPE, aligned_allocator<DTYPE>> &source_sw_profile,
 			std::vector<ITYPE, aligned_allocator<ITYPE>> &source_hw_profileIdxs,
             unsigned int size) {
     bool check = true;
+    unsigned counter = 0;
     for (size_t i = 0; i < size; i++) {
-        if (source_hw_profile[i] != source_sw_profile[i]) {
+        if (source_hw_profile[i] != source_sw_profile[i] && counter < 32) {
             std::cout << "Error: Profile result mismatch" << std::endl;
             std::cout << "i = " << i << " CPU result = " << source_sw_profile[i]
                       << " Device result = " << source_hw_profile[i]
                       << std::endl;
             check = false;
-            break;
+            counter++;
         }
         /*if (source_hw_profileIdxs[i] != source_sw_profileIdxs[i]) {
             std::cout << "Error: Profile Idxs result mismatch" << std::endl;
@@ -421,7 +420,7 @@ double run_krnl(cl::Context &context,
 
 
     // Profile reduction
-    for(ITYPE i = 0; i < size; i++)
+    for(ITYPE i = 0; i < profileLength; i++)
     {
     	if (profile_tmp_0[i] > source_hw_profile[i])
     	{
