@@ -97,6 +97,12 @@ void preprocess(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	    norms[i] = 1.0 / sqrt(norms[i]);
 	  }
 
+	/*  for (ITYPE i = profileLength; i < profileLength + 512; ++i)
+	  {
+	    //norms[i] = std::numeric_limits<DTYPE>::infinity();
+	  }*/
+
+
 	  // Calculates df and dg vectors
 	  for (ITYPE i = 0; i < profileLength - 1; ++i) {
 	    df[i] = (tSeries[i + windowSize] - tSeries[i]) / 2.0;
@@ -121,13 +127,14 @@ void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	   for (ITYPE diag = exclusionZone + 1; diag < profileLength; diag++)
 	    {
 	      covariance = 0;
-	      for (ITYPE i = 0; i < windowSize; i++)
+	      ITYPE i = 0;
+	      for (ITYPE w = 0; w < windowSize; w++)
 	      {
-	        covariance += ((tSeries[diag + i] - means[diag]) * (tSeries[i] - means[0]));
+	        covariance += ((tSeries[diag + w] - means[diag]) * (tSeries[w] - means[0]));
 	      }
 	        correlation = covariance *norms[0] * norms[diag];
 
-	      ITYPE i = 0;
+
 	        if (correlation > profile[i])
 	        {
 	          profile[i] = correlation;
@@ -144,7 +151,7 @@ void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	      i++;
 	      for (ITYPE j = diag + 1; j < profileLength; j++)
 	      {
-	    	  covariance += (df[i-1] * dg[j-1]) + (df[j-1] * dg[i-1]);
+	    	covariance += (df[i-1] * dg[j-1]) + (df[j-1] * dg[i-1]);
 	        correlation = covariance *norms[i] * norms[j];
 
 	        if (correlation > profile[i])
@@ -209,14 +216,14 @@ double run_krnl(cl::Context &context,
     cl_int err;
 
     // Temporal profile and profileIndex
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size+ 512);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size+ 512);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size+ 512);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size+ 512);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size+ 512);
 
     // Temporal profiles initialization
     for(ITYPE i = 0; i < size; i++)
@@ -306,7 +313,7 @@ double run_krnl(cl::Context &context,
 		{
 		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
 									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
-									   sizeof(DTYPE) * size, &inBuffersExt[i], &err);
+									   sizeof(DTYPE) * (size + 512), &inBuffersExt[i], &err);
 		}
 	}
 
@@ -323,7 +330,7 @@ double run_krnl(cl::Context &context,
                	   									 CL_MEM_READ_WRITE |
 													 CL_MEM_EXT_PTR_XILINX |
 													 CL_MEM_USE_HOST_PTR,
-													 sizeof(DTYPE) * size,
+													 sizeof(DTYPE) * (size + 512),
 													 &inOutBuffersExt[i],
 													 &err);
 		}
@@ -333,7 +340,7 @@ double run_krnl(cl::Context &context,
                	   									 CL_MEM_READ_WRITE |
 													 CL_MEM_EXT_PTR_XILINX |
 													 CL_MEM_USE_HOST_PTR,
-													 sizeof(ITYPE) * size,
+													 sizeof(ITYPE) * (size + 512),
 													 &inOutBuffersExt[i],
 													 &err);
 		}
@@ -422,6 +429,7 @@ double run_krnl(cl::Context &context,
     // Profile reduction
     for(ITYPE i = 0; i < profileLength; i++)
     {
+    	// Prof i
     	if (profile_tmp_0[i] > source_hw_profile[i])
     	{
     		source_hw_profile[i] = profile_tmp_0[i];
@@ -433,6 +441,8 @@ double run_krnl(cl::Context &context,
     		source_hw_profile[i] = profile_tmp_1[i];
     		source_hw_profileIndex[i] = profileIndex_tmp_1[i];
     	}
+
+    	//prof J
     	if (profile_tmp_2[i] > source_hw_profile[i])
     	{
     		source_hw_profile[i] = profile_tmp_2[i];
@@ -497,20 +507,20 @@ int main(int argc, char *argv[]) {
 
     unsigned int dataSize = 32768;
     if (xcl::is_emulation()) {
-        dataSize = 1024;
+        dataSize = 2048;
         std::cout << "Original Dataset is reduced for faster execution on "
                      "emulation flow. Data size="
                   << dataSize << std::endl;
     }
 
 
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_tSeries       	(dataSize);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_means         	(dataSize);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_norms        	(dataSize);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_df	        	(dataSize);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_dg	        	(dataSize);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> source_hw_profile    	(dataSize);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> source_hw_profileIndex	(dataSize);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_tSeries       	(dataSize + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_means         	(dataSize + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_norms        	(dataSize + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_df	        	(dataSize + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_dg	        	(dataSize + 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> source_hw_profile    	(dataSize + 512);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> source_hw_profileIndex	(dataSize + 512);
     std::vector<DTYPE, aligned_allocator<DTYPE>> source_sw_profile    	(dataSize);
     std::vector<ITYPE, aligned_allocator<ITYPE>> source_sw_profileIndex	(dataSize);
 
@@ -518,7 +528,7 @@ int main(int argc, char *argv[]) {
     ITYPE timeSeriesLength = dataSize;
 	ITYPE windowSize = 256;
 	ITYPE exclusionZone = windowSize / 4;
-	ITYPE profileLength = timeSeriesLength - windowSize + 1;;
+	ITYPE profileLength = (timeSeriesLength - windowSize + 1)/* - 512*/;
 
 	int min = 5;
 	int max = 100;
