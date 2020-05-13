@@ -216,14 +216,14 @@ double run_krnl(cl::Context &context,
     cl_int err;
 
     // Temporal profile and profileIndex
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size + 512);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size + 512);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size + 512);
-    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size+ 512);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size+ 512);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size+ 512);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size+ 512);
-    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size+ 512);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_0    	(size + VDATA_SIZE);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size + VDATA_SIZE);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size + VDATA_SIZE);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size + VDATA_SIZE);
 
     // Temporal profiles initialization
     for(ITYPE i = 0; i < size; i++)
@@ -248,14 +248,21 @@ double run_krnl(cl::Context &context,
 
     // Read-only buffers parameters
     unsigned index = 0;
-    for(unsigned i = 0; i < 26; i++)
+
+    // In buffers HBM[0]
+    for(unsigned i = 0; i < 10; i++)
     {
-    	if(i < 11 || i > 14)
-    	{
     		inBuffersExt[index].param = 0;
     		inBuffersExt[index].flags = bank[i];
     		index++;
-    	}
+    }
+
+    // In buffers HBM[1]
+    for(unsigned i = 15; i < 26; i++)
+    {
+    		inBuffersExt[index].param = 0;
+    		inBuffersExt[index].flags = bank[i];
+    		index++;
     }
 
     inBuffersExt[0].obj  = source_tSeries.data();
@@ -283,15 +290,21 @@ double run_krnl(cl::Context &context,
 
     // Read-Write buffers parameters
     index = 0;
-    for(unsigned i = 11; i < 30; i++)
+
+    // Inout buffers HBM[0]
+    for(unsigned i = 11; i < 15; i++)
     {
-    	if(i < 15 || i > 25)
-    	{
     		inOutBuffersExt[index].param = 0;
     		inOutBuffersExt[index].flags = bank[i];
 			index++;
+    }
 
-    	}
+    // Inout buffers HBM[1]
+    for(unsigned i = 26; i < 30; i++)
+    {
+    		inOutBuffersExt[index].param = 0;
+    		inOutBuffersExt[index].flags = bank[i];
+			index++;
     }
 
 
@@ -307,45 +320,28 @@ double run_krnl(cl::Context &context,
 
 	// Read-only buffers create
 	cl::Buffer buffers_input[22];
-	for(unsigned i = 0; i < 22; i++)
+
+	// 5 buffers for PU 0
+	for(unsigned i = 0; i < 5; i++)
 	{
-		if(i < 5 || (i > 10 && i <16 && i!=12))
-		{
 		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
 									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
-									   sizeof(DTYPE) * (size + 512), &inBuffersExt[i], &err);
-		}
+									   sizeof(DTYPE) * (size + VDATA_SIZE), &inBuffersExt[i], &err);
 	}
 
 	// Read-Write buffers create
 	cl::Buffer buffers_inout[8];
 
-	for(unsigned i = 0; i < 8; i++)
+	// 2 buffers for PU 0
+	for(unsigned i = 0; i < 2; i++)
 	{
-		if(i < 2 || (i > 3 && i <6))
-		{
-		if(i % 2 == 0)
-		{
 			buffers_inout[i] = cl::Buffer (context,
                	   									 CL_MEM_READ_WRITE |
 													 CL_MEM_EXT_PTR_XILINX |
 													 CL_MEM_USE_HOST_PTR,
-													 sizeof(DTYPE) * (size + 512),
+													 sizeof(DTYPE) * (size + VDATA_SIZE),
 													 &inOutBuffersExt[i],
 													 &err);
-		}
-		else
-		{
-			buffers_inout[i] = cl::Buffer (context,
-               	   									 CL_MEM_READ_WRITE |
-													 CL_MEM_EXT_PTR_XILINX |
-													 CL_MEM_USE_HOST_PTR,
-													 sizeof(ITYPE) * (size + 512),
-													 &inOutBuffersExt[i],
-													 &err);
-		}
-		//OCL_CHECK(err, buffers_inout[i]);
-		}
 	}
 
 
@@ -356,44 +352,30 @@ double run_krnl(cl::Context &context,
 	//			  profileIndex_i, profileIndex_j, profileLength,
 	//			  numDiagonals, windowSize);
 
-    OCL_CHECK(err, err = (kernel).setArg(0,  buffers_input[0]));  // tSeries_i
-    OCL_CHECK(err, err = (kernel).setArg(1,  buffers_input[11])); // tSeries_j
-    OCL_CHECK(err, err = (kernel).setArg(2,  buffers_input[1]));  // means
-    OCL_CHECK(err, err = (kernel).setArg(3,  buffers_input[4]));  // norms_i
-    OCL_CHECK(err, err = (kernel).setArg(4,  buffers_input[15])); // norms_j
-    OCL_CHECK(err, err = (kernel).setArg(5,  buffers_input[2]));  // df_i
-    OCL_CHECK(err, err = (kernel).setArg(6,  buffers_input[13])); // df_j
-    OCL_CHECK(err, err = (kernel).setArg(7,  buffers_input[3]));  // dg_i
-    OCL_CHECK(err, err = (kernel).setArg(8,  buffers_input[14])); // dg_j
-    OCL_CHECK(err, err = (kernel).setArg(9,  buffers_inout[0]));  // profile_i
-    OCL_CHECK(err, err = (kernel).setArg(10, buffers_inout[4]));  // profile_j
-    OCL_CHECK(err, err = (kernel).setArg(11, buffers_inout[1]));  // profileIndex_i
-    OCL_CHECK(err, err = (kernel).setArg(12, buffers_inout[5]));  // profileIndex_j
-    OCL_CHECK(err, err = (kernel).setArg(13, profileLength));	  // profileLength
-    OCL_CHECK(err, err = (kernel).setArg(14, numDiagonals));	  // numDiagonals
-    OCL_CHECK(err, err = (kernel).setArg(15, windowSize));		  // windowSize
+    OCL_CHECK(err, err = (kernel).setArg(0, buffers_input[0])); // tSeries_i
+    OCL_CHECK(err, err = (kernel).setArg(1, buffers_input[1])); // means
+    OCL_CHECK(err, err = (kernel).setArg(2, buffers_input[2])); // df
+    OCL_CHECK(err, err = (kernel).setArg(3, buffers_input[3])); // dg
+    OCL_CHECK(err, err = (kernel).setArg(4, buffers_input[4])); // norms
+    OCL_CHECK(err, err = (kernel).setArg(5, buffers_inout[0])); // profile
+    OCL_CHECK(err, err = (kernel).setArg(6, buffers_inout[1])); // profileIndex
+    OCL_CHECK(err, err = (kernel).setArg(7, profileLength));	// profileLength
+    OCL_CHECK(err, err = (kernel).setArg(8, numDiagonals));	    // numDiagonals
+    OCL_CHECK(err, err = (kernel).setArg(9, windowSize));		// windowSize
 
     // Copy input data to Device Global Memory
     cout << "[HOST] Copying data to device...";
-	for(unsigned i = 0; i < 22; i++)
+	for(unsigned i = 0; i < 5; i++)
 	{
-		if(i < 5 || (i > 10 && i <16 && i!=12))
-		{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
 	                                                0 /* 0 means from host*/));
-
-		}
 	}
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 2; i++)
 	{
-		if(i < 2 || (i > 3 && i < 6))
-		{
-
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
 	                                                0 /* 0 means from host*/));
-		}
 	}
 
     q.finish();
@@ -411,14 +393,11 @@ double run_krnl(cl::Context &context,
 
     // Copy Result from Device Global Memory to Host Local Memory
     cout << "[HOST] Copying data from device...";
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 2; i++)
 	{
-		if(i < 2 || (i > 3 && i < 6))
-		{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
-	            		  	  	  	  	  	  	  CL_MIGRATE_MEM_OBJECT_HOST));
-		}
+	            		  	  	  	  	  	  CL_MIGRATE_MEM_OBJECT_HOST));
 	}
     /*OCL_CHECK(err,
              err = q.enqueueMigrateMemObjects({buffer_inout1, buffer_inout2},
@@ -526,7 +505,7 @@ int main(int argc, char *argv[]) {
 
     // Prepare data
     ITYPE timeSeriesLength = dataSize;
-	ITYPE windowSize = 256;
+	ITYPE windowSize = 1024;
 	ITYPE exclusionZone = windowSize / 4;
 	ITYPE profileLength = (timeSeriesLength - windowSize + 1)/* - 512*/;
 
