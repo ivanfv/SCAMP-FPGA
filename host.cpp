@@ -154,7 +154,7 @@ void scamp_host(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	    	covariance += (df[i-1] * dg[j-1]) + (df[j-1] * dg[i-1]);
 	        correlation = covariance *norms[i] * norms[j];
 
-	        if (correlation > profile[i])
+	       if (correlation > profile[i])
 	        {
 	          profile[i] = correlation;
 	          profileIndex[i] = j;

@@ -152,12 +152,6 @@ void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 	}
 }
 
-/*inline float get_float(acces_type ap, int idx)
-{
-	raw_float tmp;
-	tmp.raw_val = ap.data[idx];
-	return tmp.float_val;
-}*/
 
 extern "C" {
 void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
@@ -165,8 +159,9 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				const ap_int<512> *df,		// df input
 				const ap_int<512> *dg,		// dg input
 				const ap_int<512> *norms,	// Norms input
-				DTYPE *profile,				// Profile input
-				ITYPE *profileIndex,		// ProfileIndex input
+				DTYPE *profile,		// Profile input
+				//ap_int<512> *profile,		// Profile input
+				ap_int<512> *profileIndex,	// ProfileIndex input
 				const ITYPE profileLength,	// profileLength
 				const ITYPE numDiagonals,	// numDiagonals
 				const ITYPE windowSize		// windowSize
@@ -177,8 +172,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE m_axi port = df           offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = dg           offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = norms        offset = slave bundle = gmem0 max_read_burst_length=64
-	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem1 max_read_burst_length=256
-	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem1 max_read_burst_length=256
+	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem1 max_read_burst_length=64
+	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem0 max_read_burst_length=64
 
 	#pragma HLS INTERFACE s_axilite port = tSeries       bundle = control
 	#pragma HLS INTERFACE s_axilite port = means         bundle = control
@@ -210,10 +205,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	DTYPE means_0;
 	DTYPE tmp_means_j[VDATA_SIZE];
 
-	// Norms temporal buffers
-	//ap_int<512> tmp_norms_i[VDATA_SIZE];
-	//DTYPE       tmp_norms_j[VDATA_SIZE];
-
 	// df temporal buffers
 	ap_int<512> tmp_df_i[VDATA_SIZE];
 	DTYPE       tmp_df_j[VDATA_SIZE];
@@ -225,6 +216,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	// profile temporal buffers
 	//DTYPE tmp_profile_i[VDATA_SIZE];
 	DTYPE tmp_profile_j[VDATA_SIZE];
+
 
 	// profileIndex temporal buffers
 	ITYPE tmp_profileIndex_i[VDATA_SIZE];
@@ -243,6 +235,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	// Auxiliary variables
 	unsigned i_read_counter;
 	unsigned y_offset;
+	//unsigned j_counter;
+	//unsigned last_j;
 	unsigned index;
 
 	/* ------------------------ ARRAY PARTITION POLICY ----------------------------- */
@@ -250,7 +244,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS array_partition variable=tmp_means_j      cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_df_j         cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_dg_j         cyclic factor=array_partition
-	//#pragma HLS array_partition variable=tmp_norms_j      cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_covariances  cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_correlations cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_profile_j 	  cyclic factor=array_partition
@@ -321,200 +314,223 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 		i_read_counter = VDATA_SIZE - 1;
 
-
 		// Initialize buffers
 		memcpy(buff_A, &df   [j / 16], 2112);
 		memcpy(buff_B, &dg   [j / 16], 2112);
 		memcpy(buff_C, &norms[j / 16], 2112);
 		//memcpy(buff_D, &profile[j / 16], 2112);
+		//memcpy( tmp_profile_j, &profile[j],sizeof(DTYPE) * (VDATA_SIZE + 32));
+
+
+		//j_counter = 0;
+		//last_j = j;
+
+		for(int i =0; i < VDATA_SIZE; i++)
+		{
+			#pragma HLS pipeline II=1
+			tmp_profile_j[i] = profile[j+i];
+
+		}
 
 
 		diag:for (j = diag; j < profileLength; j++)
 		{
-		  i_read_counter++;
+			i_read_counter++;
 
-		  if(i_read_counter == VDATA_SIZE)
-		  {
-			  i_read_counter = 0;
+			if(i_read_counter == VDATA_SIZE)
+			{
+				i_read_counter = 0;
 
-			  memcpy(tmp_tSeries_i, &norms[i / 16], sizeof(DTYPE) * VDATA_SIZE);
-			  memcpy(tmp_df_i,       &df[i / 16], sizeof(DTYPE) * VDATA_SIZE);
-			  memcpy(tmp_dg_i,       &dg[i / 16], sizeof(DTYPE) * VDATA_SIZE);
-		 }
+				memcpy(tmp_tSeries_i, &norms[i / 16], sizeof(DTYPE) * VDATA_SIZE);
+				memcpy(tmp_df_i,      &df[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
+				memcpy(tmp_dg_i,      &dg[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
+			}
 
-		  // Calculate j offset
-		  y_offset = j % 16;
+			// Calculate j offset
+			y_offset = j % 16;
 
-		  // Read norms if necessary
-		  if(y_offset == 0)
-		  {
+			// Read norms if necessary
+			if(y_offset == 0)
+			{
 			  memcpy(buff_C, &norms[j / 16], 2112);
-		  }
-
-		  adjust_offset(buff_C,  tmp_means_j, y_offset);
-
-		 // Obtain norm value for i index
-		 DTYPE norms_i_value = get_float(tmp_tSeries_i[i_read_counter / 16], i_read_counter % 16);
-
-		 // Calculate correlations
-		 correlations:for (int k = 0; k < VDATA_SIZE; k++)
-		 {
-			 #pragma HLS unroll factor=loop_unrolling
-			 #pragma HLS pipeline II=1
-			 tmp_correlations[k] = tmp_covariances[k] * norms_i_value * tmp_means_j[k];
-		 }
-
-
-		 // Obtain df and dg values for i index
-		DTYPE df_i_value = get_float(tmp_df_i[i_read_counter / 16], i_read_counter % 16);
-		DTYPE dg_i_value = get_float(tmp_dg_i[i_read_counter / 16], i_read_counter % 16);
-
-		// Read df and dg if necessary
-		if(y_offset == 0)
-		{
-			memcpy(buff_A, &df[j / 16], 2112);
-			memcpy(buff_B, &dg[j / 16], 2112);
-		}
-
-		// Adjust offset of df and dg
-		adjust_offset(buff_A,  tmp_df_j, y_offset);
-		adjust_offset(buff_B,  tmp_dg_j, y_offset);
-
-		// Update covariances
-		covariances_update:for(int k = 0; k < VDATA_SIZE; k++)
-		{
-			#pragma HLS unroll factor=loop_unrolling
-			#pragma HLS pipeline II=1
-			tmp_covariances[k] += (df_i_value * tmp_dg_j[k]) + (tmp_df_j[k] * dg_i_value);
-		}
-
-		 if(j + VDATA_SIZE > profileLength)
-		 {
-			 unsigned num_preserve = profileLength - j;
-			 for(int l = num_preserve; l < VDATA_SIZE; l++)
-			 {
-				#pragma HLS pipeline II=1
-				 tmp_correlations[l] = -1;
-			 }
-		 }
-
-	 	 tmp_i_max[0] = tmp_correlations[0];
-		 tmp_i_max[1] = tmp_correlations[0];
-		 tmp_i_max[2] = tmp_correlations[0];
-		 tmp_i_max[3] = tmp_correlations[0];
-
-		calculate_i_updates:for (int k = 0; k < (VDATA_SIZE / 4); k++)
-		{
-			#pragma HLS pipeline II=1
-
-			if(tmp_correlations[k] > tmp_i_max[0]){
-				tmp_i_index_max[0] = j + k;
-				tmp_i_max[0] = tmp_correlations[k];
 			}
 
-			if(tmp_correlations[(k + VDATA_SIZE / 4)] > tmp_i_max[1]){
-				tmp_i_max[1] = tmp_correlations[(k + VDATA_SIZE / 4)];
-				tmp_i_index_max[1] = j + (k + VDATA_SIZE / 4);
-			}
+			adjust_offset(buff_C,  tmp_means_j, y_offset);
 
-			if(tmp_correlations[(k + VDATA_SIZE / 2)] > tmp_i_max[2]){
-				tmp_i_max[2] = tmp_correlations[(k + VDATA_SIZE / 2)];
-				tmp_i_index_max[2] = j + (k + VDATA_SIZE / 2);
-			}
+			// Obtain norm value for i index
+			DTYPE norms_i_value = get_float(tmp_tSeries_i[i_read_counter / 16], i_read_counter % 16);
 
-			if(tmp_correlations[(k + 3*VDATA_SIZE / 4)] > tmp_i_max[3]){
-				tmp_i_max[3] = tmp_correlations[(k + 3 * VDATA_SIZE / 4)];
-				tmp_i_index_max[3] = j + (k + 3*VDATA_SIZE / 4);
-			}
-
-		}
-
-		if(tmp_i_max[1] > tmp_i_max[0])
-		{
-			tmp_i_max[0] = tmp_i_max[1];
-			tmp_i_index_max[0] = tmp_i_index_max[1];
-		}
-
-		if(tmp_i_max[2] > tmp_i_max[0])
-		{
-			tmp_i_max[0] = tmp_i_max[2];
-			tmp_i_index_max[0] = tmp_i_index_max[2];
-		}
-
-		if(tmp_i_max[3] > tmp_i_max[0])
-		{
-			tmp_i_max[0] = tmp_i_max[3];
-			tmp_i_index_max[0] = tmp_i_index_max[3];
-		}
-		//memcpy(buff_D, &profile[j / 16], 2112);
-
-		//adjust_offset(buff_D, tmp_profile_j, y_offset);
-
-		memcpy(tmp_profile_j, &profile[j], sizeof(DTYPE) * VDATA_SIZE);
-
-
-		calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
-		{
+			// Calculate correlations
+			correlations:for (int k = 0; k < VDATA_SIZE; k++)
+			{
 				#pragma HLS unroll factor=loop_unrolling
 				#pragma HLS pipeline II=1
-				if (tmp_correlations[k] > tmp_profile_j[k])
-				{
-					tmp_profile_j[k] = tmp_correlations[k];
-					tmp_profileIndex_j[k] = i;
-				}
-		}
+				tmp_correlations[k] = tmp_covariances[k] * norms_i_value * tmp_means_j[k];
+			}
 
-		memcpy(&profile[j], tmp_profile_j, sizeof(DTYPE) * VDATA_SIZE);
+			// Obtain df and dg values for i index
+			DTYPE df_i_value = get_float(tmp_df_i[i_read_counter / 16], i_read_counter % 16);
+			DTYPE dg_i_value = get_float(tmp_dg_i[i_read_counter / 16], i_read_counter % 16);
 
+			// Read df and dg if necessary
+			if(y_offset == 0)
+			{
+				memcpy(buff_A, &df[j / 16], 2112);
+				memcpy(buff_B, &dg[j / 16], 2112);
+			}
 
-		//update_offset(buff_D, tmp_profile_j, y_offset);
-		//memcpy(&profile[j / 16], buff_D, 2112);
+			// Adjust offset of df and dg
+			adjust_offset(buff_A,  tmp_df_j, y_offset);
+			adjust_offset(buff_B,  tmp_dg_j, y_offset);
 
-
-		/*calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
-		{
+			// Update covariances
+			covariances_update:for(int k = 0; k < VDATA_SIZE; k++)
+			{
 				#pragma HLS unroll factor=loop_unrolling
 				#pragma HLS pipeline II=1
-				if (tmp_correlations[k] > profile_j[j+k])
+				tmp_covariances[k] += (df_i_value * tmp_dg_j[k]) + (tmp_df_j[k] * dg_i_value);
+			}
+
+			if(j + VDATA_SIZE > profileLength)
+			{
+				unsigned num_preserve = profileLength - j;
+				for(int l = num_preserve; l < VDATA_SIZE; l++)
 				{
-					profile_j[j+k] = tmp_correlations[k];
-					tmp_profileIndex_j[k] = i;
+					#pragma HLS pipeline II=1
+					tmp_correlations[l] = -1;
 				}
-		}*/
+			}
+
+			tmp_i_max[0] = tmp_correlations[0];
+			tmp_i_max[1] = tmp_correlations[0];
+			tmp_i_max[2] = tmp_correlations[0];
+			tmp_i_max[3] = tmp_correlations[0];
+
+			calculate_i_updates:for (int k = 0; k < (VDATA_SIZE / 4); k++)
+			{
+				#pragma HLS pipeline II=1
+
+				if(tmp_correlations[k] > tmp_i_max[0]){
+					tmp_i_index_max[0] = j + k;
+					tmp_i_max[0] = tmp_correlations[k];
+				}
+
+				if(tmp_correlations[(k + VDATA_SIZE / 4)] > tmp_i_max[1]){
+					tmp_i_max[1] = tmp_correlations[(k + VDATA_SIZE / 4)];
+					tmp_i_index_max[1] = j + (k + VDATA_SIZE / 4);
+				}
+
+				if(tmp_correlations[(k + VDATA_SIZE / 2)] > tmp_i_max[2]){
+					tmp_i_max[2] = tmp_correlations[(k + VDATA_SIZE / 2)];
+					tmp_i_index_max[2] = j + (k + VDATA_SIZE / 2);
+				}
+
+				if(tmp_correlations[(k + 3 * VDATA_SIZE / 4)] > tmp_i_max[3]){
+					tmp_i_max[3] = tmp_correlations[(k + 3 * VDATA_SIZE / 4)];
+					tmp_i_index_max[3] = j + (k + 3 * VDATA_SIZE / 4);
+				}
+
+			}
+
+			if(tmp_i_max[1] > tmp_i_max[0])
+			{
+				tmp_i_max[0] = tmp_i_max[1];
+				tmp_i_index_max[0] = tmp_i_index_max[1];
+			}
+
+			if(tmp_i_max[2] > tmp_i_max[0])
+			{
+				tmp_i_max[0] = tmp_i_max[2];
+				tmp_i_index_max[0] = tmp_i_index_max[2];
+			}
+
+			if(tmp_i_max[3] > tmp_i_max[0])
+			{
+				tmp_i_max[0] = tmp_i_max[3];
+				tmp_i_index_max[0] = tmp_i_index_max[3];
+			}
+
+			//if(y_offset == 0)
+				//memcpy(buff_D, &profile[j / 16], 2112);
+
+			//adjust_offset(buff_D, tmp_profile_j, y_offset);
+
+			//memcpy(tmp_profile_j, &profile[j], sizeof(DTYPE) * VDATA_SIZE);
 
 
-		///if(tmp_i_max[0] > profile_j[i])
-		//	{
-		//	 profile_j[i] = tmp_i_max[0];
-				//profile_j[i / 16].range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
-				//profileIndex_i[i] = tmp_i_index_max[0];
-		//	}
+			calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+					#pragma HLS unroll factor=loop_unrolling
+					#pragma HLS pipeline II=1
+					if (tmp_correlations[k] > tmp_profile_j[k])
+					{
+						tmp_profile_j[k] = tmp_correlations[k];
+						tmp_profileIndex_j[k] = i;
+					}
+			}
+
+			profile[j] = tmp_profile_j[0];
+
+			shift:for(int i =0; i < VDATA_SIZE - 1; i++)
+			{
+				#pragma HLS unroll
+				tmp_profile_j[i] = tmp_profile_j[i+1];
+
+			}
+			tmp_profile_j[VDATA_SIZE - 1] = profile[j + VDATA_SIZE];
+
+			//memcpy(&profile[j], tmp_profile_j, sizeof(DTYPE) * VDATA_SIZE);
 
 
-		//update_offset(buff_D, tmp_profile_j, y_offset);
+			//update_offset(buff_D, tmp_profile_j, y_offset);
 
-		//memcpy(&profile_j[j / 16], buff_D, 2112);
+			//memcpy(&profile[j / 16], buff_D, 2112);
 
-		/*write_back_profile_j:for (int k = 0; k < VDATA_SIZE; k++)
-		{
-					#pragma HLS PIPELINE II=1
-					profile_j[j + k] = tmp_profile_j[k];
-		}*/
 
-		//unsigned i_offset = i % 16;
-		//ap_int<512> tmp_profile_i  = profile[i / 16];
+			/*calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+					#pragma HLS unroll factor=loop_unrolling
+					#pragma HLS pipeline II=1
+					if (tmp_correlations[k] > profile_j[j+k])
+					{
+						profile_j[j+k] = tmp_correlations[k];
+						tmp_profileIndex_j[k] = i;
+					}
+			}*/
 
-		//raw_float tmp_float;
 
-		if(tmp_i_max[0] > profile[i]/*get_float(tmp_profile_i, i_offset)*/)
-		{
-		//	tmp_float.float_val = tmp_i_max[0];
-		//	tmp_profile_i.range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
-			profileIndex[i] = tmp_i_index_max[0];
-			profile[i] = tmp_i_max[0];
-		}
-		//profile[i / 16] = tmp_profile_i;
-		i++;
+			///if(tmp_i_max[0] > profile_j[i])
+			//	{
+			//	 profile_j[i] = tmp_i_max[0];
+					//profile_j[i / 16].range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
+					//profileIndex_i[i] = tmp_i_index_max[0];
+			//	}
+
+
+			//update_offset(buff_D, tmp_profile_j, y_offset);
+
+			//memcpy(&profile_j[j / 16], buff_D, 2112);
+
+			/*write_back_profile_j:for (int k = 0; k < VDATA_SIZE; k++)
+			{
+						#pragma HLS PIPELINE II=1
+						profile_j[j + k] = tmp_profile_j[k];
+			}*/
+
+			//unsigned i_offset = i % 16;
+			//ap_int<512> tmp_profile_i /* = profile[i / 16]*/;
+
+			//raw_float tmp_float;
+
+			if(tmp_i_max[0] > profile[i]/*get_float(tmp_profile_i, i_offset)*/)
+			{
+				//tmp_float.float_val = tmp_i_max[0];
+				//tmp_profile_i.range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
+				//profileIndex[i] = tmp_i_index_max[0];
+				profile[i] = tmp_i_max[0];
+			}
+			//profile[i / 16] = tmp_profile_i;
+			i++;
 		}
 	}
 }
