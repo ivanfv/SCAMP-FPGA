@@ -49,24 +49,6 @@ const unsigned int vector_data_size = VDATA_SIZE;
 const unsigned int array_partition 	= ARRAY_PARTITION;
 const unsigned int loop_unrolling 	= LOOP_UNROLLING;
 
-/*typedef struct v_datatype {
-    ap_int<32> data[16];
-} v_dt;*/
-
-typedef struct v_intdatatype {
-    ITYPE data[IDATA_SIZE];
-} v_intdt;
-
-typedef union
-{
-	DTYPE data_512 [16];
-	DTYPE data_32;
-
-}t_copy;
-
-typedef struct access_type {
-    ap_int<32> data[16];
-} acces_type;
 
 typedef union
 {
@@ -80,47 +62,6 @@ inline float get_float(ap_int<MEM_WIDTH> ap, int index)
 	tmp.raw_val = ap.range((index + 1) * FLOAT_BITS - 1, index * FLOAT_BITS);
 	return tmp.float_val;
 }
-
-inline void store_float(ap_int<MEM_WIDTH> &ap, int index, DTYPE val)
-{
-	raw_float tmp;
-	tmp.float_val = val;
-	ap.range((index + 1) * FLOAT_BITS - 1, index * FLOAT_BITS) = tmp.raw_val;
-
-}
-
-
-void update_offset(ap_int<MEM_WIDTH> * profile_j_buf, DTYPE * profile_j, unsigned offset)
-{
-	unsigned index = 0;
-	update_profile_l1:for(int j = offset; j < 16; j++)
-	{
-		#pragma HLS PIPELINE II=1
-		store_float(profile_j_buf[0], j, profile_j[index]);
-		index++;
-	}
-
-	update_profile_l2:for (int i = 1; i < 32; i++)
-	{
-		#pragma HLS PIPELINE II=1
-
-		for(int j = 0; j < 16; j++)
-		{
-			#pragma HLS unroll factor=16
-			store_float(profile_j_buf[i], j, profile_j[index]);
-			index++;
-		}
-	}
-
-	update_profile_l3:for(int j = 0; j < offset; j++)
-	{
-		#pragma HLS PIPELINE II=1
-		store_float(profile_j_buf[32], j, profile_j[index]);
-		index++;
-	}
-}
-
-
 
 void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 {
@@ -161,7 +102,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				const ap_int<512> *norms,	// Norms input
 				DTYPE *profile,		// Profile input
 				//ap_int<512> *profile,		// Profile input
-				ap_int<512> *profileIndex,	// ProfileIndex input
+				ITYPE *profileIndex,	// ProfileIndex input
 				const ITYPE profileLength,	// profileLength
 				const ITYPE numDiagonals,	// numDiagonals
 				const ITYPE windowSize		// windowSize
@@ -173,7 +114,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE m_axi port = dg           offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = norms        offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem1 max_read_burst_length=64
-	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem0 max_read_burst_length=64
+	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem1 max_read_burst_length=64
 
 	#pragma HLS INTERFACE s_axilite port = tSeries       bundle = control
 	#pragma HLS INTERFACE s_axilite port = means         bundle = control
@@ -235,8 +176,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	// Auxiliary variables
 	unsigned i_read_counter;
 	unsigned y_offset;
-	//unsigned j_counter;
-	//unsigned last_j;
 	unsigned index;
 
 	/* ------------------------ ARRAY PARTITION POLICY ----------------------------- */
@@ -318,19 +257,13 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 		memcpy(buff_A, &df   [j / 16], 2112);
 		memcpy(buff_B, &dg   [j / 16], 2112);
 		memcpy(buff_C, &norms[j / 16], 2112);
-		//memcpy(buff_D, &profile[j / 16], 2112);
-		//memcpy( tmp_profile_j, &profile[j],sizeof(DTYPE) * (VDATA_SIZE + 32));
 
 
-		//j_counter = 0;
-		//last_j = j;
-
-		for(int i =0; i < VDATA_SIZE; i++)
+		for(int k = 0; k < VDATA_SIZE; k++)
 		{
 			#pragma HLS pipeline II=1
-			tmp_profile_j[i] = profile[j+i];
-
-		}
+			tmp_profile_j[k] = profile[j + k];
+ 		}
 
 
 		diag:for (j = diag; j < profileLength; j++)
@@ -450,13 +383,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_i_index_max[0] = tmp_i_index_max[3];
 			}
 
-			//if(y_offset == 0)
-				//memcpy(buff_D, &profile[j / 16], 2112);
-
-			//adjust_offset(buff_D, tmp_profile_j, y_offset);
-
-			//memcpy(tmp_profile_j, &profile[j], sizeof(DTYPE) * VDATA_SIZE);
-
 
 			calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
 			{
@@ -471,7 +397,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 			profile[j] = tmp_profile_j[0];
 
-			shift:for(int i =0; i < VDATA_SIZE - 1; i++)
+			shift_profile_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
 				tmp_profile_j[i] = tmp_profile_j[i+1];
@@ -479,57 +405,12 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			}
 			tmp_profile_j[VDATA_SIZE - 1] = profile[j + VDATA_SIZE];
 
-			//memcpy(&profile[j], tmp_profile_j, sizeof(DTYPE) * VDATA_SIZE);
-
-
-			//update_offset(buff_D, tmp_profile_j, y_offset);
-
-			//memcpy(&profile[j / 16], buff_D, 2112);
-
-
-			/*calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
+			if(tmp_i_max[0] > profile[i])
 			{
-					#pragma HLS unroll factor=loop_unrolling
-					#pragma HLS pipeline II=1
-					if (tmp_correlations[k] > profile_j[j+k])
-					{
-						profile_j[j+k] = tmp_correlations[k];
-						tmp_profileIndex_j[k] = i;
-					}
-			}*/
-
-
-			///if(tmp_i_max[0] > profile_j[i])
-			//	{
-			//	 profile_j[i] = tmp_i_max[0];
-					//profile_j[i / 16].range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
-					//profileIndex_i[i] = tmp_i_index_max[0];
-			//	}
-
-
-			//update_offset(buff_D, tmp_profile_j, y_offset);
-
-			//memcpy(&profile_j[j / 16], buff_D, 2112);
-
-			/*write_back_profile_j:for (int k = 0; k < VDATA_SIZE; k++)
-			{
-						#pragma HLS PIPELINE II=1
-						profile_j[j + k] = tmp_profile_j[k];
-			}*/
-
-			//unsigned i_offset = i % 16;
-			//ap_int<512> tmp_profile_i /* = profile[i / 16]*/;
-
-			//raw_float tmp_float;
-
-			if(tmp_i_max[0] > profile[i]/*get_float(tmp_profile_i, i_offset)*/)
-			{
-				//tmp_float.float_val = tmp_i_max[0];
-				//tmp_profile_i.range((i_offset + 1) * FLOAT_BITS - 1, i_offset * FLOAT_BITS) = tmp_float.raw_val;
-				//profileIndex[i] = tmp_i_index_max[0];
 				profile[i] = tmp_i_max[0];
+				profileIndex[i] = tmp_i_index_max[0];
 			}
-			//profile[i / 16] = tmp_profile_i;
+
 			i++;
 		}
 	}
