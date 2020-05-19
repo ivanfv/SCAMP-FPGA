@@ -49,7 +49,6 @@ const unsigned int vector_data_size = VDATA_SIZE;
 const unsigned int array_partition 	= ARRAY_PARTITION;
 const unsigned int loop_unrolling 	= LOOP_UNROLLING;
 
-
 typedef union
 {
 	unsigned int raw_val;
@@ -100,9 +99,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				const ap_int<512> *df,		// df input
 				const ap_int<512> *dg,		// dg input
 				const ap_int<512> *norms,	// Norms input
-				DTYPE *profile,		// Profile input
-				//ap_int<512> *profile,		// Profile input
-				ITYPE *profileIndex,	// ProfileIndex input
+				DTYPE *profile,				// Profile input
+				ITYPE *profileIndex,		// ProfileIndex input
 				const ITYPE profileLength,	// profileLength
 				const ITYPE numDiagonals,	// numDiagonals
 				const ITYPE windowSize		// windowSize
@@ -114,7 +112,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE m_axi port = dg           offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = norms        offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem1 max_read_burst_length=64
-	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem1 max_read_burst_length=64
+	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem2 max_read_burst_length=64
 
 	#pragma HLS INTERFACE s_axilite port = tSeries       bundle = control
 	#pragma HLS INTERFACE s_axilite port = means         bundle = control
@@ -265,6 +263,11 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			tmp_profile_j[k] = profile[j + k];
  		}
 
+		for(int k = 0; k < VDATA_SIZE; k++)
+		{
+			#pragma HLS pipeline II=1
+			tmp_profileIndex_j[k] = profileIndex[j + k];
+ 		}
 
 		diag:for (j = diag; j < profileLength; j++)
 		{
@@ -327,10 +330,10 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			if(j + VDATA_SIZE > profileLength)
 			{
 				unsigned num_preserve = profileLength - j;
-				for(int l = num_preserve; l < VDATA_SIZE; l++)
+				for(int k = num_preserve; k < VDATA_SIZE; k++)
 				{
 					#pragma HLS pipeline II=1
-					tmp_correlations[l] = -1;
+					tmp_correlations[k] = -1;
 				}
 			}
 
@@ -383,7 +386,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_i_index_max[0] = tmp_i_index_max[3];
 			}
 
-
 			calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
 			{
 					#pragma HLS unroll factor=loop_unrolling
@@ -395,15 +397,24 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 					}
 			}
 
-			profile[j] = tmp_profile_j[0];
+			profile[j]      = tmp_profile_j[0];
+			profileIndex[j] = tmp_profileIndex_j[0];
 
 			shift_profile_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
 				tmp_profile_j[i] = tmp_profile_j[i+1];
+			}
+
+			shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
+			{
+				#pragma HLS unroll
+				tmp_profileIndex_j[i] = tmp_profileIndex_j[i+1];
 
 			}
-			tmp_profile_j[VDATA_SIZE - 1] = profile[j + VDATA_SIZE];
+
+			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
+			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
 			if(tmp_i_max[0] > profile[i])
 			{

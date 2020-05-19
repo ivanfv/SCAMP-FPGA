@@ -188,14 +188,14 @@ bool verify(std::vector<DTYPE, aligned_allocator<DTYPE>> &source_sw_profile,
             check = false;
             counter++;
         }
-        /*if (source_hw_profileIdxs[i] != source_sw_profileIdxs[i]) {
+       if (source_hw_profileIdxs[i] != source_sw_profileIdxs[i]) {
             std::cout << "Error: Profile Idxs result mismatch" << std::endl;
             std::cout << "i = " << i << " CPU result = " << source_sw_profileIdxs[i]
                       << " Device result = " << source_hw_profileIdxs[i]
                       << std::endl;
             check = false;
-            break;
-        }*/
+            //break;
+        }
     }
     return check;
 }
