@@ -398,7 +398,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			}
 
 			profile[j]      = tmp_profile_j[0];
-			profileIndex[j] = tmp_profileIndex_j[0];
+			//profileIndex[j] = tmp_profileIndex_j[0];
 
 			shift_profile_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
@@ -406,20 +406,20 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_profile_j[i] = tmp_profile_j[i+1];
 			}
 
-			shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
+			/*shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
 				tmp_profileIndex_j[i] = tmp_profileIndex_j[i+1];
 
 			}
-
+*/
 			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
-			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
+			//tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
 			if(tmp_i_max[0] > profile[i])
 			{
 				profile[i] = tmp_i_max[0];
-				profileIndex[i] = tmp_i_index_max[0];
+			//	profileIndex[i] = tmp_i_index_max[0];
 			}
 
 			i++;
