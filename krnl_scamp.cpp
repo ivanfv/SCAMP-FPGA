@@ -109,9 +109,9 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE m_axi port = tSeries      offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = means        offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = df           offset = slave bundle = gmem0 max_read_burst_length=64
-	#pragma HLS INTERFACE m_axi port = dg           offset = slave bundle = gmem0 max_read_burst_length=64
+	#pragma HLS INTERFACE m_axi port = dg           offset = slave bundle = gmem1 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = norms        offset = slave bundle = gmem0 max_read_burst_length=64
-	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem1 max_read_burst_length=64
+	#pragma HLS INTERFACE m_axi port = profile      offset = slave bundle = gmem2 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = profileIndex offset = slave bundle = gmem2 max_read_burst_length=64
 
 	#pragma HLS INTERFACE s_axilite port = tSeries       bundle = control
@@ -184,6 +184,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS array_partition variable=tmp_covariances  cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_correlations cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_profile_j 	  cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_profileIndex_j cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_i_max 	      complete
 	#pragma HLS array_partition variable=tmp_i_index_max  complete
 
@@ -311,6 +312,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			// Read df and dg if necessary
 			if(y_offset == 0)
 			{
+				#pragma HLS loop_merge
 				memcpy(buff_A, &df[j / 16], 2112);
 				memcpy(buff_B, &dg[j / 16], 2112);
 			}
@@ -337,10 +339,12 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				}
 			}
 
-			tmp_i_max[0] = tmp_correlations[0];
-			tmp_i_max[1] = tmp_correlations[0];
-			tmp_i_max[2] = tmp_correlations[0];
-			tmp_i_max[3] = tmp_correlations[0];
+			tmp_i_max[0] = -1;//tmp_correlations[0];
+			tmp_i_max[1] = -1;//tmp_correlations[0];
+			tmp_i_max[2] = -1;//tmp_correlations[0];
+			tmp_i_max[3] = -1;//tmp_correlations[0];
+
+		//	tmp_i_index_max[0] = profileIndex[i];
 
 			calculate_i_updates:for (int k = 0; k < (VDATA_SIZE / 4); k++)
 			{
@@ -398,7 +402,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			}
 
 			profile[j]      = tmp_profile_j[0];
-			//profileIndex[j] = tmp_profileIndex_j[0];
+			profileIndex[j] = tmp_profileIndex_j[0];
 
 			shift_profile_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
@@ -406,20 +410,20 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_profile_j[i] = tmp_profile_j[i+1];
 			}
 
-			/*shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
+			shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
 				tmp_profileIndex_j[i] = tmp_profileIndex_j[i+1];
 
 			}
-*/
+
 			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
-			//tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
+			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
 			if(tmp_i_max[0] > profile[i])
 			{
 				profile[i] = tmp_i_max[0];
-			//	profileIndex[i] = tmp_i_index_max[0];
+				profileIndex[i] = tmp_i_index_max[0];
 			}
 
 			i++;
