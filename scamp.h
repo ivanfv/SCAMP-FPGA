@@ -5,3 +5,4 @@
 
 #define VDATA_SIZE  512
 
+#define NUM_KERNELS 1

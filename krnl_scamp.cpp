@@ -57,6 +57,7 @@ typedef union
 
 inline float get_float(ap_int<MEM_WIDTH> ap, int index)
 {
+#pragma HLS inline
 	raw_float tmp;
 	tmp.raw_val = ap.range((index + 1) * FLOAT_BITS - 1, index * FLOAT_BITS);
 	return tmp.float_val;
@@ -64,6 +65,7 @@ inline float get_float(ap_int<MEM_WIDTH> ap, int index)
 
 void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 {
+
 	unsigned index = 0;
 	adjust_offset_l1:for(int j = offset; j < 16; j++)
 	{
@@ -339,20 +341,13 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				}
 			}
 
-			//tmp_i_max[0] = -1;//tmp_correlations[0];
-			//tmp_i_max[1] = -1;//tmp_correlations[0];
-			//tmp_i_max[2] = -1;//tmp_correlations[0];
-		//	tmp_i_max[3] = -1;//tmp_correlations[0];
-
-
-			init_i_updates:for(int k = 0; k<16; k++)
+			init_i_updates:for(int k = 0; k < 16; k++)
 			{
 				#pragma HLS pipeline II=1
 				tmp_i_max[k] = -1;
-
 			}
 
-			calculate_i_updates_1:for (int k = 0; k < VDATA_SIZE; k+=16)
+			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += 16)
 			{
 				#pragma HLS pipeline II=1
 
@@ -371,63 +366,6 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 					}
 				}
 			}
-
-
-
-			/*calculate_i_updates:for (int k = 0; k < (VDATA_SIZE / 4); k++)
-			{
-				#pragma HLS pipeline II=1
-
-				if(tmp_correlations[k] > tmp_i_max[0]){
-					tmp_i_index_max[0] = j + k;
-					tmp_i_max[0] = tmp_correlations[k];
-				}
-
-				if(tmp_correlations[(k + VDATA_SIZE / 4)] > tmp_i_max[1]){
-					tmp_i_max[1] = tmp_correlations[(k + VDATA_SIZE / 4)];
-					tmp_i_index_max[1] = j + (k + VDATA_SIZE / 4);
-				}
-
-				if(tmp_correlations[(k + VDATA_SIZE / 2)] > tmp_i_max[2]){
-					tmp_i_max[2] = tmp_correlations[(k + VDATA_SIZE / 2)];
-					tmp_i_index_max[2] = j + (k + VDATA_SIZE / 2);
-				}
-
-				if(tmp_correlations[(k + 3 * VDATA_SIZE / 4)] > tmp_i_max[3]){
-					tmp_i_max[3] = tmp_correlations[(k + 3 * VDATA_SIZE / 4)];
-					tmp_i_index_max[3] = j + (k + 3 * VDATA_SIZE / 4);
-				}
-
-			}*/
-
-			/*if(tmp_i_max[1] > tmp_i_max[0])
-			{
-				tmp_i_max[0] = tmp_i_max[1];
-				tmp_i_index_max[0] = tmp_i_index_max[1];
-			}
-
-			if(tmp_i_max[2] > tmp_i_max[0])
-			{
-				tmp_i_max[0] = tmp_i_max[2];
-				tmp_i_index_max[0] = tmp_i_index_max[2];
-			}
-
-			if(tmp_i_max[3] > tmp_i_max[0])
-			{
-				tmp_i_max[0] = tmp_i_max[3];
-				tmp_i_index_max[0] = tmp_i_index_max[3];
-			}*/
-
-		/*	calculate_j_updates:for (int k = 0; k < VDATA_SIZE; k++)
-			{
-					#pragma HLS unroll factor=loop_unrolling
-					#pragma HLS pipeline II=1
-					if (tmp_correlations[k] > tmp_profile_j[k])
-					{
-						tmp_profile_j[k] = tmp_correlations[k];
-						tmp_profileIndex_j[k] = i;
-					}
-			}*/
 
 			profile[j]      = tmp_profile_j[0];
 			profileIndex[j] = tmp_profileIndex_j[0];
@@ -448,13 +386,13 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
 			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
-			calculate_i_updates_2:for(int k = 0; k<16; k++)
+			calculate_i_updates:for(int k = 0; k<16; k++)
 			{
 				#pragma HLS pipeline II=2
 				if(tmp_i_max[k] > tmp_i_max[0])
 				{
 					tmp_i_index_max[0] = tmp_i_index_max[k];
-					tmp_i_max[0] = tmp_i_max[k];
+					tmp_i_max[0]       = tmp_i_max[k];
 				}
 
 			}

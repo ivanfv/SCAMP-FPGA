@@ -484,7 +484,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    unsigned int dataSize = 131072;
+    unsigned int dataSize = 32768;
     if (xcl::is_emulation()) {
         dataSize = 2048;
         std::cout << "Original Dataset is reduced for faster execution on "
