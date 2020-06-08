@@ -104,7 +104,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				DTYPE *profile,				// Profile input
 				ITYPE *profileIndex,		// ProfileIndex input
 				const ITYPE profileLength,	// profileLength
-				const ITYPE numDiagonals,	// numDiagonals
+				const ITYPE startDiag,	    // First Diagonal
+				const ITYPE endDiag,	    // Last Diagonal
 				const ITYPE windowSize		// windowSize
 ) {
 	/* --------------------- INTERFACES CONFIGURATION -------------------------- */
@@ -124,7 +125,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE s_axilite port = profile       bundle = control
 	#pragma HLS INTERFACE s_axilite port = profileIndex  bundle = control
 	#pragma HLS INTERFACE s_axilite port = profileLength bundle = control
-	#pragma HLS INTERFACE s_axilite port = numDiagonals  bundle = control
+	#pragma HLS INTERFACE s_axilite port = startDiag     bundle = control
+	#pragma HLS INTERFACE s_axilite port = endDiag       bundle = control
 	#pragma HLS INTERFACE s_axilite port = windowSize    bundle = control
 	#pragma HLS INTERFACE s_axilite port = return        bundle = control
 	/* -------------------------------------------------------------------------- */
@@ -196,7 +198,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	means_0 = get_float(means[0], 0);
 
 	// Main loop: go through diagonals
-	main_loop: for(ITYPE diag = windowSize / 4 + 1; diag < profileLength; diag+=VDATA_SIZE)
+	main_loop: for(ITYPE diag = startDiag; diag < endDiag; diag+=VDATA_SIZE)
 	{
 		// Initialize diagonal coordinates
 		i = 0;

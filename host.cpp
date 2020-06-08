@@ -97,12 +97,6 @@ void preprocess(std::vector<DTYPE, aligned_allocator<DTYPE>> &tSeries,
 	    norms[i] = 1.0 / sqrt(norms[i]);
 	  }
 
-	/*  for (ITYPE i = profileLength; i < profileLength + 512; ++i)
-	  {
-	    //norms[i] = std::numeric_limits<DTYPE>::infinity();
-	  }*/
-
-
 	  // Calculates df and dg vectors
 	  for (ITYPE i = 0; i < profileLength - 1; ++i) {
 	    df[i] = (tSeries[i + windowSize] - tSeries[i]) / 2.0;
@@ -200,9 +194,9 @@ bool verify(std::vector<DTYPE, aligned_allocator<DTYPE>> &source_sw_profile,
     return check;
 }
 
-double run_krnl(cl::Context &context,
+double run_krnls(cl::Context &context,
                 cl::CommandQueue &q,
-                cl::Kernel &kernel,
+                std::vector<cl::Kernel> &kernels,
                 std::vector<DTYPE, aligned_allocator<DTYPE>> &source_tSeries,
                 std::vector<DTYPE, aligned_allocator<DTYPE>> &source_means,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &source_norms,
@@ -212,7 +206,7 @@ double run_krnl(cl::Context &context,
 				std::vector<ITYPE, aligned_allocator<ITYPE>> &source_hw_profileIndex,
                 int *bank_assign,
                 ITYPE size,
-				ITYPE profileLength, ITYPE numDiagonals, ITYPE windowSize) {
+				ITYPE profileLength, ITYPE exclusionZone, ITYPE windowSize) {
     cl_int err;
 
     // Temporal profile and profileIndex
@@ -239,6 +233,17 @@ double run_krnl(cl::Context &context,
     	profileIndex_tmp_3[i] = 0;
     }
 
+
+
+    // Static Scheduling
+    ITYPE startDiags[NUM_KERNELS];
+    ITYPE endDiags[NUM_KERNELS];
+
+    startDiags[0] = exclusionZone + 1;
+    endDiags[0]   = profileLength / 3;
+
+    startDiags[1] = (profileLength / 3) + 1;
+    endDiags[1]   = profileLength;
 
     cout << "[HOST] Creating buffers...";
     // For Allocating Buffer to specific Global Memory Bank, user has to use cl_mem_ext_ptr_t
@@ -321,8 +326,8 @@ double run_krnl(cl::Context &context,
 	// Read-only buffers create
 	cl::Buffer buffers_input[22];
 
-	// 5 buffers for PU 0
-	for(unsigned i = 0; i < 5; i++)
+	// 5 buffers for PU 0 and 1
+	for(unsigned i = 0; i < 8; i++)
 	{
 		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
 									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
@@ -332,8 +337,8 @@ double run_krnl(cl::Context &context,
 	// Read-Write buffers create
 	cl::Buffer buffers_inout[8];
 
-	// 2 buffers for PU 0
-	for(unsigned i = 0; i < 2; i++)
+	// 2 buffers for PU 0 and 1
+	for(unsigned i = 0; i < 4; i++)
 	{
 			buffers_inout[i] = cl::Buffer (context,
                	   									 CL_MEM_READ_WRITE |
@@ -347,31 +352,43 @@ double run_krnl(cl::Context &context,
 
     cout << "OK." << endl;
     //Setting the kernel Arguments
-	// krnl_scamp(tSeries_i, tSeries_j, means, norms_i, norms_j,
-	//   		  df_i, df_j, dg_i, dg_j, profile_i, profile_j,
-	//			  profileIndex_i, profileIndex_j, profileLength,
-	//			  numDiagonals, windowSize);
 
-    OCL_CHECK(err, err = (kernel).setArg(0, buffers_input[0])); // tSeries_i
-    OCL_CHECK(err, err = (kernel).setArg(1, buffers_input[1])); // means
-    OCL_CHECK(err, err = (kernel).setArg(2, buffers_input[2])); // df
-    OCL_CHECK(err, err = (kernel).setArg(3, buffers_input[3])); // dg
-    OCL_CHECK(err, err = (kernel).setArg(4, buffers_input[4])); // norms
-    OCL_CHECK(err, err = (kernel).setArg(5, buffers_inout[0])); // profile
-    OCL_CHECK(err, err = (kernel).setArg(6, buffers_inout[1])); // profileIndex
-    OCL_CHECK(err, err = (kernel).setArg(7, profileLength));	// profileLength
-    OCL_CHECK(err, err = (kernel).setArg(8, numDiagonals));	    // numDiagonals
-    OCL_CHECK(err, err = (kernel).setArg(9, windowSize));		// windowSize
+    // Kernel 0
+    OCL_CHECK(err, err = (kernels[0]).setArg(0, buffers_input[0])); // tSeries_i
+    OCL_CHECK(err, err = (kernels[0]).setArg(1, buffers_input[1])); // means
+    OCL_CHECK(err, err = (kernels[0]).setArg(2, buffers_input[2])); // df
+    OCL_CHECK(err, err = (kernels[0]).setArg(3, buffers_input[3])); // dg
+    OCL_CHECK(err, err = (kernels[0]).setArg(4, buffers_input[4])); // norms
+    OCL_CHECK(err, err = (kernels[0]).setArg(5, buffers_inout[0])); // profile
+    OCL_CHECK(err, err = (kernels[0]).setArg(6, buffers_inout[1])); // profileIndex
+    OCL_CHECK(err, err = (kernels[0]).setArg(7, profileLength));	// profileLength
+    OCL_CHECK(err, err = (kernels[0]).setArg(8, startDiags[0])); 	// startDiag
+    OCL_CHECK(err, err = (kernels[0]).setArg(9, endDiags[0]));	    // endDiag
+    OCL_CHECK(err, err = (kernels[0]).setArg(10, windowSize));		// windowSize
+
+    // Kernel 1
+    OCL_CHECK(err, err = (kernels[1]).setArg(0, buffers_input[0])); // tSeries_i
+    OCL_CHECK(err, err = (kernels[1]).setArg(1, buffers_input[1])); // means
+    OCL_CHECK(err, err = (kernels[1]).setArg(2, buffers_input[5])); // df
+    OCL_CHECK(err, err = (kernels[1]).setArg(3, buffers_input[6])); // dg
+    OCL_CHECK(err, err = (kernels[1]).setArg(4, buffers_input[7])); // norms
+    OCL_CHECK(err, err = (kernels[1]).setArg(5, buffers_inout[2])); // profile
+    OCL_CHECK(err, err = (kernels[1]).setArg(6, buffers_inout[3])); // profileIndex
+    OCL_CHECK(err, err = (kernels[1]).setArg(7, profileLength));	// profileLength
+    OCL_CHECK(err, err = (kernels[1]).setArg(8, startDiags[1])); 	// startDiag
+    OCL_CHECK(err, err = (kernels[1]).setArg(9, endDiags[1]));	    // endDiag
+    OCL_CHECK(err, err = (kernels[1]).setArg(10, windowSize));		// windowSize
+
 
     // Copy input data to Device Global Memory
     cout << "[HOST] Copying data to device...";
-	for(unsigned i = 0; i < 5; i++)
+	for(unsigned i = 0; i < 8; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
 	                                                0 /* 0 means from host*/));
 	}
-	for(unsigned i = 0; i < 2; i++)
+	for(unsigned i = 0; i < 4; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -385,7 +402,8 @@ double run_krnl(cl::Context &context,
     std::chrono::duration<double> kernel_time(0);
 
     auto kernel_start = std::chrono::high_resolution_clock::now();
-    OCL_CHECK(err, err = q.enqueueTask(kernel));
+    OCL_CHECK(err, err = q.enqueueTask(kernels[0]));
+    OCL_CHECK(err, err = q.enqueueTask(kernels[1]));
     q.finish();
     auto kernel_end = std::chrono::high_resolution_clock::now();
 
@@ -393,7 +411,7 @@ double run_krnl(cl::Context &context,
 
     // Copy Result from Device Global Memory to Host Local Memory
     cout << "[HOST] Copying data from device...";
-	for(unsigned i = 0; i < 2; i++)
+	for(unsigned i = 0; i < 4; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -445,8 +463,9 @@ int main(int argc, char *argv[]) {
     cl_int err;
     cl::Context context;
     cl::CommandQueue q;
-    cl::Kernel kernel_scamp;
+    std::vector<cl::Kernel> kernels(NUM_KERNELS);
     std::string binaryFile = argv[1];
+    std::string kernel_name = "krnl_scamp";
 
     // The get_xil_devices will return vector of Xilinx Devices
     auto devices = xcl::get_xil_devices();
@@ -463,7 +482,7 @@ int main(int argc, char *argv[]) {
         OCL_CHECK(err, context = cl::Context({device}, NULL, NULL, NULL, &err));
         OCL_CHECK(err,
                   q = cl::CommandQueue(
-                      context, {device}, CL_QUEUE_PROFILING_ENABLE, &err));
+                      context, {device}, CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err));
 
         std::cout << "Trying to program device[" << i
                   << "]: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
@@ -473,8 +492,12 @@ int main(int argc, char *argv[]) {
                       << "] with xclbin file!\n";
         } else {
             std::cout << "Device[" << i << "]: program successful!\n";
-            OCL_CHECK(err,
-                      kernel_scamp = cl::Kernel(program, "krnl_scamp", &err));
+            for(int k = 0; k < NUM_KERNELS; k++)
+            {
+            	std::string s = kernel_name+":{"+kernel_name + "_" + to_string(k+1)+"}";
+            	OCL_CHECK(err,
+            			kernels[k] = cl::Kernel(program, s.c_str(), &err));
+            }
             valid_device++;
             break; // we break because we found a valid device
         }
@@ -507,15 +530,15 @@ int main(int argc, char *argv[]) {
     ITYPE timeSeriesLength = dataSize;
 	ITYPE windowSize = 1024;
 	ITYPE exclusionZone = windowSize / 4;
-	ITYPE profileLength = (timeSeriesLength - windowSize + 1)/* - 512*/;
+	ITYPE profileLength = timeSeriesLength - windowSize + 1;
 
 	int min = 5;
 	int max = 100;
 
+	// Generate a random time series
 	for(ITYPE i = 0; i < source_tSeries.size(); i++)
 	{
 		source_tSeries[i] = min + (rand() % static_cast<int>(min - max + 1));
-		//std::cout << source_tSeries[i] << std::endl;
 	}
 
     preprocess(source_tSeries, source_means, source_norms, source_df,source_dg,profileLength, windowSize);
@@ -539,6 +562,7 @@ int main(int argc, char *argv[]) {
     scamp_host(source_tSeries,source_means, source_norms,
     		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
 			profileLength, exclusionZone, windowSize);
+
     // cambiar a steady clock
     auto host_end = std::chrono::high_resolution_clock::now();
     host_time = std::chrono::duration<double>(host_end - host_start);
@@ -554,9 +578,9 @@ int main(int argc, char *argv[]) {
         bank_assign[j] = bank[j];
     }
 
-    kernel_time_in_sec = run_krnl(context,
+    kernel_time_in_sec = run_krnls(context,
                                   q,
-                                  kernel_scamp,
+                                  kernels,
                                   source_tSeries,
                                   source_means,
 								  source_norms,
@@ -567,10 +591,11 @@ int main(int argc, char *argv[]) {
                                   bank_assign,
                                   dataSize,
 								  profileLength,
-								  source_tSeries.size(),
+								  exclusionZone,
 								  windowSize);
 
     match = verify(source_sw_profile, source_hw_profile, source_sw_profileIndex, source_hw_profileIndex ,dataSize);
+
 
     std::cout << "[FPGA] DONE. Execution time: " << kernel_time_in_sec << " seconds." << std::endl;
 
