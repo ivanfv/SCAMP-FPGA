@@ -239,11 +239,26 @@ double run_krnls(cl::Context &context,
     ITYPE startDiags[NUM_KERNELS];
     ITYPE endDiags[NUM_KERNELS];
 
-    startDiags[0] = exclusionZone + 1;
-    endDiags[0]   = profileLength / 3;
+   // startDiags[0] = exclusionZone + 1;
+   // endDiags[0]   = profileLength / 3;
 
-    startDiags[1] = (profileLength / 3) + 1;
-    endDiags[1]   = profileLength;
+   // startDiags[1] = (profileLength / 3) + 1;
+   // endDiags[1]   = profileLength;
+
+    startDiags[0] = exclusionZone + 1;
+     endDiags[0]   = profileLength / 9;
+
+    startDiags[1] = (profileLength / 9) + 1;
+     endDiags[1]   = (profileLength / 3);
+
+     startDiags[2] = profileLength / 3 + 1;
+      endDiags[2]   = profileLength * 5 / 9;
+
+     startDiags[3] = (profileLength * 5 / 9) + 1;
+      endDiags[3]   = profileLength;
+
+
+
 
     cout << "[HOST] Creating buffers...";
     // For Allocating Buffer to specific Global Memory Bank, user has to use cl_mem_ext_ptr_t
@@ -255,7 +270,7 @@ double run_krnls(cl::Context &context,
     unsigned index = 0;
 
     // In buffers HBM[0]
-    for(unsigned i = 0; i < 10; i++)
+    for(unsigned i = 0; i < 11; i++)
     {
     		inBuffersExt[index].param = 0;
     		inBuffersExt[index].flags = bank[i];
@@ -269,6 +284,7 @@ double run_krnls(cl::Context &context,
     		inBuffersExt[index].flags = bank[i];
     		index++;
     }
+
 
     inBuffersExt[0].obj  = source_tSeries.data();
     inBuffersExt[1].obj  = source_means.data();
@@ -312,7 +328,6 @@ double run_krnls(cl::Context &context,
 			index++;
     }
 
-
     inOutBuffersExt[0].obj = profile_tmp_0.data();
 	inOutBuffersExt[1].obj = profileIndex_tmp_0.data();
 	inOutBuffersExt[2].obj = profile_tmp_1.data();
@@ -326,6 +341,9 @@ double run_krnls(cl::Context &context,
 	// Read-only buffers create
 	cl::Buffer buffers_input[22];
 
+
+
+
 	// 5 buffers for PU 0 and 1
 	for(unsigned i = 0; i < 8; i++)
 	{
@@ -334,11 +352,19 @@ double run_krnls(cl::Context &context,
 									   sizeof(DTYPE) * (size + VDATA_SIZE), &inBuffersExt[i], &err);
 	}
 
+	for(unsigned i = 11; i < 19; i++)
+	{
+		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
+									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
+									   sizeof(DTYPE) * (size + VDATA_SIZE), &inBuffersExt[i], &err);
+	}
+
+
 	// Read-Write buffers create
 	cl::Buffer buffers_inout[8];
 
 	// 2 buffers for PU 0 and 1
-	for(unsigned i = 0; i < 4; i++)
+	for(unsigned i = 0; i < 8; i++)
 	{
 			buffers_inout[i] = cl::Buffer (context,
                	   									 CL_MEM_READ_WRITE |
@@ -379,6 +405,31 @@ double run_krnls(cl::Context &context,
     OCL_CHECK(err, err = (kernels[1]).setArg(9, endDiags[1]));	    // endDiag
     OCL_CHECK(err, err = (kernels[1]).setArg(10, windowSize));		// windowSize
 
+    // Kernel 2
+    OCL_CHECK(err, err = (kernels[2]).setArg(0, buffers_input[11])); // tSeries_i
+    OCL_CHECK(err, err = (kernels[2]).setArg(1, buffers_input[12])); // means
+    OCL_CHECK(err, err = (kernels[2]).setArg(2, buffers_input[13])); // df
+    OCL_CHECK(err, err = (kernels[2]).setArg(3, buffers_input[14])); // dg
+    OCL_CHECK(err, err = (kernels[2]).setArg(4, buffers_input[15])); // norms
+    OCL_CHECK(err, err = (kernels[2]).setArg(5, buffers_inout[4])); // profile
+    OCL_CHECK(err, err = (kernels[2]).setArg(6, buffers_inout[5])); // profileIndex
+    OCL_CHECK(err, err = (kernels[2]).setArg(7, profileLength));	// profileLength
+    OCL_CHECK(err, err = (kernels[2]).setArg(8, startDiags[2])); 	// startDiag
+    OCL_CHECK(err, err = (kernels[2]).setArg(9, endDiags[2]));	    // endDiag
+    OCL_CHECK(err, err = (kernels[2]).setArg(10, windowSize));		// windowSize
+
+    // Kernel 3
+    OCL_CHECK(err, err = (kernels[3]).setArg(0, buffers_input[11])); // tSeries_i
+    OCL_CHECK(err, err = (kernels[3]).setArg(1, buffers_input[12])); // means
+    OCL_CHECK(err, err = (kernels[3]).setArg(2, buffers_input[16])); // df
+    OCL_CHECK(err, err = (kernels[3]).setArg(3, buffers_input[17])); // dg
+    OCL_CHECK(err, err = (kernels[3]).setArg(4, buffers_input[18])); // norms
+    OCL_CHECK(err, err = (kernels[3]).setArg(5, buffers_inout[6])); // profile
+    OCL_CHECK(err, err = (kernels[3]).setArg(6, buffers_inout[7])); // profileIndex
+    OCL_CHECK(err, err = (kernels[3]).setArg(7, profileLength));	// profileLength
+    OCL_CHECK(err, err = (kernels[3]).setArg(8, startDiags[3])); 	// startDiag
+    OCL_CHECK(err, err = (kernels[3]).setArg(9, endDiags[3]));	    // endDiag
+    OCL_CHECK(err, err = (kernels[3]).setArg(10, windowSize));		// windowSize
 
     // Copy input data to Device Global Memory
     cout << "[HOST] Copying data to device...";
@@ -388,7 +439,15 @@ double run_krnls(cl::Context &context,
 	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
 	                                                0 /* 0 means from host*/));
 	}
-	for(unsigned i = 0; i < 4; i++)
+
+	for(unsigned i = 11; i < 19; i++)
+	{
+	    OCL_CHECK(err,
+	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
+	                                                0 /* 0 means from host*/));
+	}
+
+	for(unsigned i = 0; i < 8; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -404,6 +463,8 @@ double run_krnls(cl::Context &context,
     auto kernel_start = std::chrono::high_resolution_clock::now();
     OCL_CHECK(err, err = q.enqueueTask(kernels[0]));
     OCL_CHECK(err, err = q.enqueueTask(kernels[1]));
+    OCL_CHECK(err, err = q.enqueueTask(kernels[2]));
+    OCL_CHECK(err, err = q.enqueueTask(kernels[3]));
     q.finish();
     auto kernel_end = std::chrono::high_resolution_clock::now();
 
@@ -411,7 +472,7 @@ double run_krnls(cl::Context &context,
 
     // Copy Result from Device Global Memory to Host Local Memory
     cout << "[HOST] Copying data from device...";
-	for(unsigned i = 0; i < 4; i++)
+	for(unsigned i = 0; i < 8; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -507,7 +568,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    unsigned int dataSize = 32768;
+    unsigned int dataSize = 131072;
     if (xcl::is_emulation()) {
         dataSize = 2048;
         std::cout << "Original Dataset is reduced for faster execution on "
@@ -562,7 +623,6 @@ int main(int argc, char *argv[]) {
     scamp_host(source_tSeries,source_means, source_norms,
     		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
 			profileLength, exclusionZone, windowSize);
-
     // cambiar a steady clock
     auto host_end = std::chrono::high_resolution_clock::now();
     host_time = std::chrono::duration<double>(host_end - host_start);
@@ -595,7 +655,7 @@ int main(int argc, char *argv[]) {
 								  windowSize);
 
     match = verify(source_sw_profile, source_hw_profile, source_sw_profileIndex, source_hw_profileIndex ,dataSize);
-
+//match = true;
 
     std::cout << "[FPGA] DONE. Execution time: " << kernel_time_in_sec << " seconds." << std::endl;
 
