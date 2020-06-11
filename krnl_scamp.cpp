@@ -351,7 +351,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += 16)
 			{
-				#pragma HLS pipeline II=1
+				#pragma HLS pipeline II=2
 
 				for(int kk = 0; kk < 16; kk++)
 				{

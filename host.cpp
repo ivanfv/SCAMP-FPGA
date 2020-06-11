@@ -204,7 +204,7 @@ double run_krnls(cl::Context &context,
 				std::vector<DTYPE, aligned_allocator<DTYPE>> &source_dg,
                 std::vector<DTYPE, aligned_allocator<DTYPE>> &source_hw_profile,
 				std::vector<ITYPE, aligned_allocator<ITYPE>> &source_hw_profileIndex,
-                int *bank_assign,
+                const int *bank_assign,
                 ITYPE size,
 				ITYPE profileLength, ITYPE exclusionZone, ITYPE windowSize) {
     cl_int err;
@@ -630,13 +630,9 @@ int main(int argc, char *argv[]) {
     std::cout << "[HOST] DONE. Execution time: " << host_time.count() << " seconds." << std::endl;
 
     double kernel_time_in_sec = 0;
-    bool match = true;
-    const int numBuf = 30; // Since 30 buffers are being used
-    int bank_assign[numBuf];
+    bool match = false;
 
-    for (int j = 0; j < numBuf; j++) {
-        bank_assign[j] = bank[j];
-    }
+
 
     kernel_time_in_sec = run_krnls(context,
                                   q,
@@ -648,7 +644,7 @@ int main(int argc, char *argv[]) {
 								  source_dg,
                                   source_hw_profile,
 								  source_hw_profileIndex,
-                                  bank_assign,
+                                  bank,
                                   dataSize,
 								  profileLength,
 								  exclusionZone,
