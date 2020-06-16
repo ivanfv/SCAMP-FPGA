@@ -167,8 +167,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	DTYPE tmp_correlations[VDATA_SIZE];
 
 	// imax temporal buffer
-	DTYPE tmp_i_max[16];
-	ITYPE tmp_i_index_max[16];
+	DTYPE tmp_i_max[loop_unrolling];
+	ITYPE tmp_i_index_max[loop_unrolling];
 
 	// Auxiliary variables
 	unsigned i_read_counter;
@@ -244,7 +244,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			first_cov_calc:for (int k = 0; k < VDATA_SIZE; k++)
 			{
 				#pragma HLS PIPELINE II=1
-				#pragma HLS unroll factor=16
+				#pragma HLS unroll factor=loop_unrolling
 				tmp_covariances[k] += (tmp_tSeries_j[k] - tmp_means_j[k]) * (tSeries_i_value - means_0);
 			}
 		}
@@ -278,8 +278,11 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				i_read_counter = 0;
 
 				memcpy(tmp_tSeries_i, &norms[i / 16], sizeof(DTYPE) * VDATA_SIZE);
+				{
+				#pragma HLS loop_merge
 				memcpy(tmp_df_i,      &df[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
 				memcpy(tmp_dg_i,      &dg[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
+				}
 			}
 
 			// Calculate j offset
@@ -344,11 +347,11 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_i_max[k] = -1;
 			}
 
-			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += 16)
+			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += loop_unrolling)
 			{
 				#pragma HLS pipeline II=2
 
-				for(int kk = 0; kk < 16; kk++)
+				for(int kk = 0; kk < loop_unrolling; kk++)
 				{
 					#pragma HLS unroll
 					if(tmp_correlations[k + kk] > tmp_i_max[kk]){
@@ -383,13 +386,13 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
 			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
-			calculate_i_updates:for(int k = 0; k<16; k++)
+			calculate_i_updates:for(int k = 0; k<loop_unrolling; k++)
 			{
 				#pragma HLS pipeline II=2
 				if(tmp_i_max[k] > tmp_i_max[0])
 				{
-					tmp_i_index_max[0] = tmp_i_index_max[k];
 					tmp_i_max[0]       = tmp_i_max[k];
+					tmp_i_index_max[0] = tmp_i_index_max[k];
 				}
 
 			}
