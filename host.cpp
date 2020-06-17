@@ -214,10 +214,14 @@ double run_krnls(cl::Context &context,
     std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_1    	(size + VDATA_SIZE);
     std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_2    	(size + VDATA_SIZE);
     std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_3    	(size + VDATA_SIZE);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_4    	(size + VDATA_SIZE);
+    std::vector<DTYPE, aligned_allocator<DTYPE>> profile_tmp_5    	(size + VDATA_SIZE);
     std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_0	(size + VDATA_SIZE);
     std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_1	(size + VDATA_SIZE);
     std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_2	(size + VDATA_SIZE);
     std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_3	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_4	(size + VDATA_SIZE);
+    std::vector<ITYPE, aligned_allocator<ITYPE>> profileIndex_tmp_5	(size + VDATA_SIZE);
 
     // Temporal profiles initialization
     for(ITYPE i = 0; i < size; i++)
@@ -226,11 +230,15 @@ double run_krnls(cl::Context &context,
     	profile_tmp_1[i] = -std::numeric_limits<DTYPE>::infinity();
     	profile_tmp_2[i] = -std::numeric_limits<DTYPE>::infinity();
     	profile_tmp_3[i] = -std::numeric_limits<DTYPE>::infinity();
+    	profile_tmp_4[i] = -std::numeric_limits<DTYPE>::infinity();
+    	profile_tmp_5[i] = -std::numeric_limits<DTYPE>::infinity();
 
     	profileIndex_tmp_0[i] = 0;
     	profileIndex_tmp_1[i] = 0;
     	profileIndex_tmp_2[i] = 0;
     	profileIndex_tmp_3[i] = 0;
+    	profileIndex_tmp_4[i] = 0;
+    	profileIndex_tmp_5[i] = 0;
     }
 
 
@@ -258,13 +266,46 @@ double run_krnls(cl::Context &context,
       endDiags[3]   = profileLength;
 
 
+    // SCHEDULING
+   /* ITYPE num_total_elements = 0;
 
+    for(ITYPE i = exclusionZone + 1; i < profileLength; i++)
+    {
+    	num_total_elements += (size - i);
+    }
+
+    ITYPE num_elements_kernel = num_total_elements / NUM_KERNELS;
+
+    ITYPE kernel_start = exclusionZone + 1;
+    ITYPE kernel_end;
+
+    for (unsigned k = 0; k < NUM_KERNELS - 1; k++)
+    {
+    	startDiags[i] = kernel_start;
+
+    	ITYPE sum_elements = 0;
+    	kernel_end = kernel_start + 1;
+
+    	while(sum_elements < num_elements_kernel)
+    	{
+    		sum_elements += (size - kernel_end);
+    		kernel_end++;
+    	}
+    	endDiags[i] = kernel_end;
+
+    	kernel_start = kernel_end + 1;
+
+    }
+	startDiags[NUM_KERNELS - 1] = kernel_start;
+    endDiags[NUM_KERNELS - 1]   = profileLength;
+*/
 
     cout << "[HOST] Creating buffers...";
+
     // For Allocating Buffer to specific Global Memory Bank, user has to use cl_mem_ext_ptr_t
     // and provide the Banks
     cl_mem_ext_ptr_t inBuffersExt[22];
-    cl_mem_ext_ptr_t inOutBuffersExt[8];
+    cl_mem_ext_ptr_t inOutBuffersExt[12];
 
     // Read-only buffers parameters
     unsigned index = 0;
@@ -309,62 +350,81 @@ double run_krnls(cl::Context &context,
     inBuffersExt[20].obj = source_dg.data();
     inBuffersExt[21].obj = source_norms.data();
 
+
     // Read-Write buffers parameters
     index = 0;
 
     // Inout buffers HBM[0]
-    for(unsigned i = 11; i < 15; i++)
+    for(unsigned i = 11; i < 14; i++)
     {
     		inOutBuffersExt[index].param = 0;
     		inOutBuffersExt[index].flags = bank[i];
-			index++;
+
+    		inOutBuffersExt[index + 1].param = 0;
+    		inOutBuffersExt[index + 1].flags = bank[i];
+			index+=2;
     }
 
+    index = 8;
     // Inout buffers HBM[1]
-    for(unsigned i = 26; i < 30; i++)
+    for(unsigned i = 26; i < 27; i++)
     {
     		inOutBuffersExt[index].param = 0;
     		inOutBuffersExt[index].flags = bank[i];
-			index++;
+
+       		inOutBuffersExt[index + 1].param = 0;
+       		inOutBuffersExt[index + 1].flags = bank[i];
+
+			index+=2;
     }
 
-    inOutBuffersExt[0].obj = profile_tmp_0.data();
-	inOutBuffersExt[1].obj = profileIndex_tmp_0.data();
-	inOutBuffersExt[2].obj = profile_tmp_1.data();
-	inOutBuffersExt[3].obj = profileIndex_tmp_1.data();
-    inOutBuffersExt[4].obj = profile_tmp_2.data();
-	inOutBuffersExt[5].obj = profileIndex_tmp_2.data();
-	inOutBuffersExt[6].obj = profile_tmp_3.data();
-	inOutBuffersExt[7].obj = profileIndex_tmp_3.data();
+    inOutBuffersExt[0].obj  = profile_tmp_0.data();
+	inOutBuffersExt[1].obj  = profileIndex_tmp_0.data();
+	inOutBuffersExt[2].obj  = profile_tmp_1.data();
+	inOutBuffersExt[3].obj  = profileIndex_tmp_1.data();
+    inOutBuffersExt[4].obj  = profile_tmp_2.data();
+	inOutBuffersExt[5].obj  = profileIndex_tmp_2.data();
+	inOutBuffersExt[6].obj  = profile_tmp_3.data();
+	inOutBuffersExt[7].obj  = profileIndex_tmp_3.data();
+	inOutBuffersExt[8].obj  = profile_tmp_4.data();
+	inOutBuffersExt[9].obj  = profileIndex_tmp_4.data();
+	inOutBuffersExt[10].obj = profile_tmp_5.data();
+	inOutBuffersExt[11].obj = profileIndex_tmp_5.data();
 
 
 	// Read-only buffers create
 	cl::Buffer buffers_input[22];
 
 
-
-
-	// 5 buffers for PU 0 and 1
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 16; i++)
 	{
 		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
 									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
 									   sizeof(DTYPE) * (size + VDATA_SIZE), &inBuffersExt[i], &err);
 	}
 
-	for(unsigned i = 11; i < 19; i++)
+/*	for(unsigned i = 11; i < 19; i++)
 	{
 		buffers_input[i] = cl::Buffer (context, CL_MEM_READ_ONLY |
 									   CL_MEM_EXT_PTR_XILINX | CL_MEM_USE_HOST_PTR,
 									   sizeof(DTYPE) * (size + VDATA_SIZE), &inBuffersExt[i], &err);
-	}
+	}*/
 
 
 	// Read-Write buffers create
-	cl::Buffer buffers_inout[8];
+	cl::Buffer buffers_inout[12];
 
-	// 2 buffers for PU 0 and 1
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 6; i++)
+	{
+			buffers_inout[i] = cl::Buffer (context,
+               	   									 CL_MEM_READ_WRITE |
+													 CL_MEM_EXT_PTR_XILINX |
+													 CL_MEM_USE_HOST_PTR,
+													 sizeof(DTYPE) * (size + VDATA_SIZE),
+													 &inOutBuffersExt[i],
+													 &err);
+	}
+	for(unsigned i = 8; i < 10; i++)
 	{
 			buffers_inout[i] = cl::Buffer (context,
                	   									 CL_MEM_READ_WRITE |
@@ -390,7 +450,7 @@ double run_krnls(cl::Context &context,
     OCL_CHECK(err, err = (kernels[0]).setArg(7, profileLength));	// profileLength
     OCL_CHECK(err, err = (kernels[0]).setArg(8, startDiags[0])); 	// startDiag
     OCL_CHECK(err, err = (kernels[0]).setArg(9, endDiags[0]));	    // endDiag
-    OCL_CHECK(err, err = (kernels[0]).setArg(10, windowSize));		// windowSize
+   OCL_CHECK(err, err = (kernels[0]).setArg(10, windowSize));		// windowSize
 
     // Kernel 1
     OCL_CHECK(err, err = (kernels[1]).setArg(0, buffers_input[0])); // tSeries_i
@@ -406,11 +466,11 @@ double run_krnls(cl::Context &context,
     OCL_CHECK(err, err = (kernels[1]).setArg(10, windowSize));		// windowSize
 
     // Kernel 2
-    OCL_CHECK(err, err = (kernels[2]).setArg(0, buffers_input[11])); // tSeries_i
-    OCL_CHECK(err, err = (kernels[2]).setArg(1, buffers_input[12])); // means
-    OCL_CHECK(err, err = (kernels[2]).setArg(2, buffers_input[13])); // df
-    OCL_CHECK(err, err = (kernels[2]).setArg(3, buffers_input[14])); // dg
-    OCL_CHECK(err, err = (kernels[2]).setArg(4, buffers_input[15])); // norms
+    OCL_CHECK(err, err = (kernels[2]).setArg(0, buffers_input[0])); // tSeries_i
+    OCL_CHECK(err, err = (kernels[2]).setArg(1, buffers_input[1])); // means
+    OCL_CHECK(err, err = (kernels[2]).setArg(2, buffers_input[8])); // df
+    OCL_CHECK(err, err = (kernels[2]).setArg(3, buffers_input[9])); // dg
+    OCL_CHECK(err, err = (kernels[2]).setArg(4, buffers_input[10])); // norms
     OCL_CHECK(err, err = (kernels[2]).setArg(5, buffers_inout[4])); // profile
     OCL_CHECK(err, err = (kernels[2]).setArg(6, buffers_inout[5])); // profileIndex
     OCL_CHECK(err, err = (kernels[2]).setArg(7, profileLength));	// profileLength
@@ -421,11 +481,11 @@ double run_krnls(cl::Context &context,
     // Kernel 3
     OCL_CHECK(err, err = (kernels[3]).setArg(0, buffers_input[11])); // tSeries_i
     OCL_CHECK(err, err = (kernels[3]).setArg(1, buffers_input[12])); // means
-    OCL_CHECK(err, err = (kernels[3]).setArg(2, buffers_input[16])); // df
-    OCL_CHECK(err, err = (kernels[3]).setArg(3, buffers_input[17])); // dg
-    OCL_CHECK(err, err = (kernels[3]).setArg(4, buffers_input[18])); // norms
-    OCL_CHECK(err, err = (kernels[3]).setArg(5, buffers_inout[6])); // profile
-    OCL_CHECK(err, err = (kernels[3]).setArg(6, buffers_inout[7])); // profileIndex
+    OCL_CHECK(err, err = (kernels[3]).setArg(2, buffers_input[13])); // df
+    OCL_CHECK(err, err = (kernels[3]).setArg(3, buffers_input[14])); // dg
+    OCL_CHECK(err, err = (kernels[3]).setArg(4, buffers_input[15])); // norms
+    OCL_CHECK(err, err = (kernels[3]).setArg(5, buffers_inout[8])); // profile
+    OCL_CHECK(err, err = (kernels[3]).setArg(6, buffers_inout[9])); // profileIndex
     OCL_CHECK(err, err = (kernels[3]).setArg(7, profileLength));	// profileLength
     OCL_CHECK(err, err = (kernels[3]).setArg(8, startDiags[3])); 	// startDiag
     OCL_CHECK(err, err = (kernels[3]).setArg(9, endDiags[3]));	    // endDiag
@@ -433,21 +493,28 @@ double run_krnls(cl::Context &context,
 
     // Copy input data to Device Global Memory
     cout << "[HOST] Copying data to device...";
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 16; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
 	                                                0 /* 0 means from host*/));
 	}
 
-	for(unsigned i = 11; i < 19; i++)
+	//for(unsigned i = 11; i < 19; i++)
+	//{
+	 //   OCL_CHECK(err,
+	 //             err = q.enqueueMigrateMemObjects({buffers_input[i]},
+	  //                                              0 /* 0 means from host*/));
+	//}
+
+	for(unsigned i = 0; i < 6; i++)
 	{
 	    OCL_CHECK(err,
-	              err = q.enqueueMigrateMemObjects({buffers_input[i]},
+	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
 	                                                0 /* 0 means from host*/));
 	}
 
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 8; i < 10; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -472,7 +539,14 @@ double run_krnls(cl::Context &context,
 
     // Copy Result from Device Global Memory to Host Local Memory
     cout << "[HOST] Copying data from device...";
-	for(unsigned i = 0; i < 8; i++)
+	for(unsigned i = 0; i < 6; i++)
+	{
+	    OCL_CHECK(err,
+	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
+	            		  	  	  	  	  	  CL_MIGRATE_MEM_OBJECT_HOST));
+	}
+
+	for(unsigned i = 8; i < 10; i++)
 	{
 	    OCL_CHECK(err,
 	              err = q.enqueueMigrateMemObjects({buffers_inout[i]},
@@ -487,7 +561,7 @@ double run_krnls(cl::Context &context,
     // Profile reduction
     for(ITYPE i = 0; i < profileLength; i++)
     {
-    	// Prof i
+
     	if (profile_tmp_0[i] > source_hw_profile[i])
     	{
     		source_hw_profile[i] = profile_tmp_0[i];
@@ -500,7 +574,6 @@ double run_krnls(cl::Context &context,
     		source_hw_profileIndex[i] = profileIndex_tmp_1[i];
     	}
 
-    	//prof J
     	if (profile_tmp_2[i] > source_hw_profile[i])
     	{
     		source_hw_profile[i] = profile_tmp_2[i];
@@ -510,6 +583,18 @@ double run_krnls(cl::Context &context,
     	{
     		source_hw_profile[i] = profile_tmp_3[i];
     		source_hw_profileIndex[i] = profileIndex_tmp_3[i];
+    	}
+
+    	if (profile_tmp_4[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_4[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_4[i];
+    	}
+
+    	if (profile_tmp_5[i] > source_hw_profile[i])
+    	{
+    		source_hw_profile[i] = profile_tmp_5[i];
+    		source_hw_profileIndex[i] = profileIndex_tmp_5[i];
     	}
     }
     cout << "OK." << endl;
@@ -621,7 +706,7 @@ int main(int argc, char *argv[]) {
     auto host_start = std::chrono::high_resolution_clock::now();
 
     scamp_host(source_tSeries,source_means, source_norms,
-    		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
+   		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
 			profileLength, exclusionZone, windowSize);
     // cambiar a steady clock
     auto host_end = std::chrono::high_resolution_clock::now();

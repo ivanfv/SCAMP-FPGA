@@ -1,31 +1,21 @@
 /**********
-Copyright (c) 2019, Xilinx, Inc.
-All rights reserved.
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software
-without specific prior written permission.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 **********/
 
 /*******************************************************************************
 Description: 
-    This is a SCAMP implemented using C++ HLS.
-    
+    This is the SCAMP kernel implementation using C++ HLS
 *******************************************************************************/
 
 #include "scamp.h"
@@ -33,16 +23,11 @@ Description:
 #include "ap_int.h"
 #include <iostream>
 
-#define IDATA_SIZE       16
-#define ARRAY_PARTITION  16
-#define LOOP_UNROLLING   16
-
-#define MEM_WIDTH 512
-#define FLOAT_BITS 32
-
-const unsigned int vector_data_size = VDATA_SIZE;
-const unsigned int array_partition 	= ARRAY_PARTITION;
-const unsigned int loop_unrolling 	= LOOP_UNROLLING;
+const unsigned int vector_data_size  = VDATA_SIZE;
+const unsigned int array_partition 	 = ARRAY_PARTITION;
+const unsigned int loop_unrolling 	 = LOOP_UNROLLING;
+const unsigned int wide_buff_size    = (VDATA_SIZE / (MEM_WIDTH / FLOAT_BITS));
+const unsigned int general_buff_size = (VDATA_SIZE / (MEM_WIDTH / FLOAT_BITS)) + 1;
 
 typedef union
 {
@@ -60,7 +45,6 @@ inline float get_float(ap_int<MEM_WIDTH> ap, int index)
 
 void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 {
-
 	unsigned index = 0;
 	adjust_offset_l1:for(int j = offset; j < 16; j++)
 	{
@@ -68,11 +52,9 @@ void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 		out[index] = get_float(in[0], j);
 		index++;
 	}
-
 	adjust_offset_l2:for (int i = 1; i < 32; i++)
 	{
 		#pragma HLS PIPELINE II=1
-
 		for(int j = 0; j < 16; j++)
 		{
 			#pragma HLS unroll factor=16
@@ -80,7 +62,6 @@ void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 			index++;
 		}
 	}
-
 	adjust_offset_l3:for(int j = 0; j < offset; j++)
 	{
 		#pragma HLS PIPELINE II=1
@@ -89,21 +70,20 @@ void adjust_offset(ap_int<MEM_WIDTH> * in, DTYPE * out, unsigned offset)
 	}
 }
 
-
 extern "C" {
-void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
-				const ap_int<512> *means,	// Means input
-				const ap_int<512> *df,		// df input
-				const ap_int<512> *dg,		// dg input
-				const ap_int<512> *norms,	// Norms input
-				DTYPE *profile,				// Profile input
-				ITYPE *profileIndex,		// ProfileIndex input
-				const ITYPE profileLength,	// profileLength
-				const ITYPE startDiag,	    // First Diagonal
-				const ITYPE endDiag,	    // Last Diagonal
-				const ITYPE windowSize		// windowSize
+void krnl_scamp(const ap_int<MEM_WIDTH> *tSeries, // tSeries input
+				const ap_int<MEM_WIDTH> *means,	  // Means input
+				const ap_int<MEM_WIDTH> *df,	  // df input
+				const ap_int<MEM_WIDTH> *dg,	  // dg input
+				const ap_int<MEM_WIDTH> *norms,	  // Norms input
+				DTYPE *profile,					  // Profile input
+				ITYPE *profileIndex,		      // ProfileIndex input
+				const ITYPE profileLength,	      // profileLength
+				const ITYPE startDiag,	          // First Diagonal
+				const ITYPE endDiag,	          // Last Diagonal
+				const ITYPE windowSize		      // windowSize
 ) {
-	/* --------------------- INTERFACES CONFIGURATION -------------------------- */
+	/* -------------------------------- INTERFACES CONFIGURATION --------------------------------------- */
 	#pragma HLS INTERFACE m_axi port = tSeries      offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = means        offset = slave bundle = gmem0 max_read_burst_length=64
 	#pragma HLS INTERFACE m_axi port = df           offset = slave bundle = gmem0 max_read_burst_length=64
@@ -124,37 +104,32 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	#pragma HLS INTERFACE s_axilite port = endDiag       bundle = control
 	#pragma HLS INTERFACE s_axilite port = windowSize    bundle = control
 	#pragma HLS INTERFACE s_axilite port = return        bundle = control
-	/* -------------------------------------------------------------------------- */
-
-	// Diagonal position coordinates
-	ITYPE i, j;
+	/* ------------------------------------------------------------------------------------------------- */
 
 	// General purpose buffers
-	ap_int<512> buff_A[33];
-	ap_int<512> buff_B[33];
-	ap_int<512> buff_C[33];
-	ap_int<512> buff_D[33];
+	ap_int<MEM_WIDTH> buff_A[general_buff_size];
+	ap_int<MEM_WIDTH> buff_B[general_buff_size];
+	ap_int<MEM_WIDTH> buff_C[general_buff_size];
+	ap_int<MEM_WIDTH> buff_D[general_buff_size];
 
 	// Time series temporal buffers
-	ap_int<512> tmp_tSeries_i[32];
-	DTYPE       tmp_tSeries_j[VDATA_SIZE];
+	ap_int<MEM_WIDTH> tmp_tSeries_i[wide_buff_size];
+	DTYPE             tmp_tSeries_j[VDATA_SIZE];
 
 	// Means temporal buffers
 	DTYPE means_0;
 	DTYPE tmp_means_j[VDATA_SIZE];
 
 	// df temporal buffers
-	ap_int<512> tmp_df_i[VDATA_SIZE];
-	DTYPE       tmp_df_j[VDATA_SIZE];
+	ap_int<MEM_WIDTH> tmp_df_i[VDATA_SIZE];
+	DTYPE tmp_df_j            [VDATA_SIZE];
 
 	// dg temporal buffers
-	ap_int<512> tmp_dg_i[VDATA_SIZE];
-	DTYPE       tmp_dg_j[VDATA_SIZE];
+	ap_int<MEM_WIDTH> tmp_dg_i[VDATA_SIZE];
+	DTYPE tmp_dg_j            [VDATA_SIZE];
 
 	// profile temporal buffers
-	//DTYPE tmp_profile_i[VDATA_SIZE];
 	DTYPE tmp_profile_j[VDATA_SIZE];
-
 
 	// profileIndex temporal buffers
 	ITYPE tmp_profileIndex_i[VDATA_SIZE];
@@ -167,26 +142,26 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 	DTYPE tmp_correlations[VDATA_SIZE];
 
 	// imax temporal buffer
-	DTYPE tmp_i_max[loop_unrolling];
+	DTYPE tmp_i_max      [loop_unrolling];
 	ITYPE tmp_i_index_max[loop_unrolling];
 
 	// Auxiliary variables
+	ITYPE i, j;
 	unsigned i_read_counter;
-	unsigned y_offset;
+	unsigned j_offset;
 	unsigned index;
 
 	/* ------------------------ ARRAY PARTITION POLICY ----------------------------- */
-	#pragma HLS array_partition variable=tmp_tSeries_j    cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_means_j      cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_df_j         cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_dg_j         cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_covariances  cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_correlations cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_profile_j 	  cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_tSeries_j      cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_means_j        cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_df_j           cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_dg_j           cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_covariances    cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_correlations   cyclic factor=array_partition
+	#pragma HLS array_partition variable=tmp_profile_j 	    cyclic factor=array_partition
 	#pragma HLS array_partition variable=tmp_profileIndex_j cyclic factor=array_partition
-	#pragma HLS array_partition variable=tmp_i_max 	      complete
-	#pragma HLS array_partition variable=tmp_i_index_max  complete
-
+	#pragma HLS array_partition variable=tmp_i_max 	        complete
+	#pragma HLS array_partition variable=tmp_i_index_max    complete
 	/* ----------------------------------------------------------------------------- */
 
 	// Initialize means value for i=0 (same for all diagonals)
@@ -209,22 +184,23 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 		// Burst read of means for current set of diagonals
 		index = 0;
-		y_offset = j % 16;
+		j_offset = j % 16;
 
 		memcpy(buff_A, &means[j / 16], 2112);
 
-		adjust_offset(buff_A,  tmp_means_j, y_offset);
+		adjust_offset(buff_A,  tmp_means_j, j_offset);
 
 		// i-buffer counter initialization (forces first time filling)
 		i_read_counter = VDATA_SIZE - 1;
 
+		// Copy first time series data
 		memcpy(buff_A, &(tSeries[j / 16]), 2112);
 
 		// Calculate first covariances for this set of diagonals
 		first_cov_main:for (ITYPE w = 0; w < windowSize; w++)
 		{
 			i_read_counter++;
-			y_offset = (j + w) % 16;
+			j_offset = (j + w) % 16;
 			index = 0;
 
 			// if i_read_counter reached VDATA_SIZE update buffer
@@ -234,10 +210,10 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				memcpy(tmp_tSeries_i, &tSeries[w / 16], sizeof(DTYPE) * VDATA_SIZE);
 			}
 
-			if(y_offset == 0)
+			if(j_offset == 0)
 				memcpy(buff_A, &(tSeries[(j + w) / 16]), 2112);
 
-			adjust_offset(buff_A,  tmp_tSeries_j, y_offset);
+			adjust_offset(buff_A,  tmp_tSeries_j, j_offset);
 
 			DTYPE tSeries_i_value = get_float(tmp_tSeries_i[i_read_counter / 16], i_read_counter % 16);
 
@@ -278,23 +254,24 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				i_read_counter = 0;
 
 				memcpy(tmp_tSeries_i, &norms[i / 16], sizeof(DTYPE) * VDATA_SIZE);
+
 				{
-				#pragma HLS loop_merge
-				memcpy(tmp_df_i,      &df[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
-				memcpy(tmp_dg_i,      &dg[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
+					#pragma HLS loop_merge
+					memcpy(tmp_df_i,      &df[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
+					memcpy(tmp_dg_i,      &dg[i / 16],    sizeof(DTYPE) * VDATA_SIZE);
 				}
 			}
 
 			// Calculate j offset
-			y_offset = j % 16;
+			j_offset = j % 16;
 
 			// Read norms if necessary
-			if(y_offset == 0)
+			if(j_offset == 0)
 			{
 			  memcpy(buff_C, &norms[j / 16], 2112);
 			}
 
-			adjust_offset(buff_C,  tmp_means_j, y_offset);
+			adjust_offset(buff_C,  tmp_means_j, j_offset);
 
 			// Obtain norm value for i index
 			DTYPE norms_i_value = get_float(tmp_tSeries_i[i_read_counter / 16], i_read_counter % 16);
@@ -312,7 +289,7 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			DTYPE dg_i_value = get_float(tmp_dg_i[i_read_counter / 16], i_read_counter % 16);
 
 			// Read df and dg if necessary
-			if(y_offset == 0)
+			if(j_offset == 0)
 			{
 				#pragma HLS loop_merge
 				memcpy(buff_A, &df[j / 16], 2112);
@@ -320,8 +297,8 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 			}
 
 			// Adjust offset of df and dg
-			adjust_offset(buff_A,  tmp_df_j, y_offset);
-			adjust_offset(buff_B,  tmp_dg_j, y_offset);
+			adjust_offset(buff_A,  tmp_df_j, j_offset);
+			adjust_offset(buff_B,  tmp_dg_j, j_offset);
 
 			// Update covariances
 			covariances_update:for(int k = 0; k < VDATA_SIZE; k++)
@@ -331,25 +308,28 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				tmp_covariances[k] += (df_i_value * tmp_dg_j[k]) + (tmp_df_j[k] * dg_i_value);
 			}
 
+			// Discard out-of-bound values
 			if(j + VDATA_SIZE > profileLength)
 			{
 				unsigned num_preserve = profileLength - j;
-				for(int k = num_preserve; k < VDATA_SIZE; k++)
+				discard_loop:for(int k = num_preserve; k < VDATA_SIZE; k++)
 				{
 					#pragma HLS pipeline II=1
 					tmp_correlations[k] = -1;
 				}
 			}
 
+			// Init max i values to -1
 			init_i_updates:for(int k = 0; k < 16; k++)
 			{
 				#pragma HLS pipeline II=1
 				tmp_i_max[k] = -1;
 			}
 
+			// Calculate both i and j updates
 			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += loop_unrolling)
 			{
-				#pragma HLS pipeline II=2
+				#pragma HLS pipeline II=1
 
 				for(int kk = 0; kk < loop_unrolling; kk++)
 				{
@@ -367,15 +347,18 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 				}
 			}
 
+			// Update profile j and profileIndex j
 			profile[j]      = tmp_profile_j[0];
 			profileIndex[j] = tmp_profileIndex_j[0];
 
+			// shift temp profile j one to the left
 			shift_profile_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
 				tmp_profile_j[i] = tmp_profile_j[i+1];
 			}
 
+			// shift temp profileIndex j one to the left
 			shift_profileIndex_j:for(int i =0; i < VDATA_SIZE - 1; i++)
 			{
 				#pragma HLS unroll
@@ -383,12 +366,14 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 			}
 
+			// Get new element for temp profile j and temp profileIndex j
 			tmp_profile_j[VDATA_SIZE - 1]      = profile[j + VDATA_SIZE];
 			tmp_profileIndex_j[VDATA_SIZE - 1] = profileIndex[j + VDATA_SIZE];
 
+
 			calculate_i_updates:for(int k = 0; k<loop_unrolling; k++)
 			{
-				#pragma HLS pipeline II=2
+				#pragma HLS pipeline II=1
 				if(tmp_i_max[k] > tmp_i_max[0])
 				{
 					tmp_i_max[0]       = tmp_i_max[k];
@@ -397,12 +382,12 @@ void krnl_scamp(const ap_int<512> *tSeries, // tSeries input
 
 			}
 
+			// Update profile i if necessary
 			if(tmp_i_max[0] > profile[i])
 			{
 				profile[i] = tmp_i_max[0];
 				profileIndex[i] = tmp_i_index_max[0];
 			}
-
 			i++;
 		}
 	}
