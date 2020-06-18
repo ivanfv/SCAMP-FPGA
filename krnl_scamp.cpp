@@ -329,7 +329,7 @@ void krnl_scamp(const ap_int<MEM_WIDTH> *tSeries, // tSeries input
 			// Calculate both i and j updates
 			calculate_updates:for (int k = 0; k < VDATA_SIZE; k += loop_unrolling)
 			{
-				#pragma HLS pipeline II=1
+				#pragma HLS pipeline II=2
 
 				for(int kk = 0; kk < loop_unrolling; kk++)
 				{
@@ -373,7 +373,7 @@ void krnl_scamp(const ap_int<MEM_WIDTH> *tSeries, // tSeries input
 
 			calculate_i_updates:for(int k = 0; k<loop_unrolling; k++)
 			{
-				#pragma HLS pipeline II=1
+				#pragma HLS pipeline II=2
 				if(tmp_i_max[k] > tmp_i_max[0])
 				{
 					tmp_i_max[0]       = tmp_i_max[k];
