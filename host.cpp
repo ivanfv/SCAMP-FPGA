@@ -248,49 +248,26 @@ double run_krnls(cl::Context &context,
     ITYPE endDiags  [NUM_KERNELS];
 
 
+    ITYPE kernel_diag_start = exclusionZone + 1;
+    float factor = 1.75;
+    ITYPE kernel_diag_end = exclusionZone + 1 + (profileLength / (NUM_KERNELS * factor));
 
-    /*startDiags[0] = exclusionZone + 1;
-     endDiags[0]   = profileLength / 9;
-
-
-    startDiags[1] = (profileLength / 9) + 1;
-     endDiags[1]   = (profileLength / 3);
-
-     startDiags[2] = profileLength / 3 + 1;
-      endDiags[2]   = profileLength * 5 / 9;
-
-     startDiags[3] = (profileLength * 5 / 9) + 1;
-      endDiags[3]   = profileLength;
-
-      startDiags[4] = 0;
-       endDiags[4]   = 0;
-
-       startDiags[5] = 0;
-        endDiags[5]   = 0;*/
-
-  /*  startDiags[0] = exclusionZone + 1;
-      endDiags[0]   = profileLength / 3.5;
+    for (unsigned k = 0; k < NUM_KERNELS - 1; k++)
+     {
+    	startDiags[k] = kernel_diag_start;
+    	endDiags[k] = kernel_diag_end;
 
 
-     startDiags[1] = (profileLength / 3.5) + 1;
-      endDiags[1]   = profileLength;
-*/
-      startDiags[2] = 0;
-       endDiags[2]   = 0;
+    	kernel_diag_start = kernel_diag_end + 1;
+    	kernel_diag_end += (profileLength / (NUM_KERNELS* factor));
 
-      startDiags[3] = 0;
-       endDiags[3]   = 0;
+    	factor-=0.25;
+        }
 
-       startDiags[4] = 0;
-        endDiags[4]   = 0;
-
-        startDiags[5] = 0;
-         endDiags[5]   = 0;
-
-
-
+	startDiags[NUM_KERNELS - 1] = kernel_diag_start;
+    endDiags[NUM_KERNELS - 1]   = profileLength;
     // SCHEDULING
-    ITYPE num_total_elements = 0;
+   /* ITYPE num_total_elements = 0;
 
     for(ITYPE i = exclusionZone + 1; i < profileLength; i++)
     {
@@ -309,7 +286,7 @@ double run_krnls(cl::Context &context,
     	ITYPE sum_elements = 0;
     	kernel_diag_end = kernel_diag_start + 1;
 
-    	while(sum_elements < num_elements_kernel * 2)
+    	while(sum_elements < num_elements_kernel)
     	{
     		sum_elements += (size - kernel_diag_end);
     		kernel_diag_end++;
@@ -319,13 +296,15 @@ double run_krnls(cl::Context &context,
     	kernel_diag_start = kernel_diag_end + 1;
 
     }
-	startDiags[NUM_KERNELS - 1] = kernel_diag_start;
-    endDiags[NUM_KERNELS - 1]   = profileLength;
+    endDiags[NUM_KERNELS - 2] = 65536;
+
+	startDiags[NUM_KERNELS - 1] = 65537;
+    endDiags[NUM_KERNELS - 1]   = profileLength;*/
 
 
     for (unsigned k = 0; k < NUM_KERNELS; k++)
     {
-    	std::cout << "kernel " << k << " start: " << startDiags[k] << " end: " << endDiags[k] << std::endl;
+    	std::cout << "[INFO] Kernel " << k << " start: " << startDiags[k] << " end: " << endDiags[k] << std::endl;
     }
 
 
@@ -766,10 +745,10 @@ int main(int argc, char *argv[]) {
     std::chrono::duration<double> host_time(0);
     auto host_start = std::chrono::high_resolution_clock::now();
 
-   // scamp_host(source_tSeries,source_means, source_norms,
-   //		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
-	//	profileLength, exclusionZone, windowSize);
-    // cambiar a steady clock
+    scamp_host(source_tSeries,source_means, source_norms,
+   		source_df, source_dg, source_sw_profile, source_sw_profileIndex,
+		profileLength, exclusionZone, windowSize);
+     //cambiar a steady clock
     auto host_end = std::chrono::high_resolution_clock::now();
     host_time = std::chrono::duration<double>(host_end - host_start);
 
@@ -796,13 +775,13 @@ int main(int argc, char *argv[]) {
 								  exclusionZone,
 								  windowSize);
 
-   // match = verify(source_sw_profile, source_hw_profile, source_sw_profileIndex, source_hw_profileIndex ,dataSize);
+    match = verify(source_sw_profile, source_hw_profile, source_sw_profileIndex, source_hw_profileIndex ,dataSize);
 
     std::cout << "[FPGA] DONE. Execution time: " << kernel_time_in_sec << " seconds." << std::endl;
 
-    std::cout << "Speedup FPGA vs HOST: " <<  host_time.count() / kernel_time_in_sec << "x" << std::endl;
-match = true;
+    std::cout << "[INFO] Speedup FPGA VS HOST: " <<  host_time.count() / kernel_time_in_sec << "x" << std::endl;
+//match = true;
 
-    std::cout << (match ? "TEST PASSED" : "TEST FAILED") << std::endl;
+    std::cout << (match ? "[INFO] TEST PASSED" : "TEST FAILED") << std::endl;
     return (match ? EXIT_SUCCESS : EXIT_FAILURE);
 }
