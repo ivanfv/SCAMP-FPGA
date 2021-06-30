@@ -1,0 +1,22 @@
+{
+  "version": "2020.1",
+  "applications": [],
+  "platforms": [],
+  "systems": [
+    {
+      "name": "scamp_system",
+      "platform": "/opt/xilinx/platforms/xilinx_u50_gen3x16_xdma_201920_3/xilinx_u50_gen3x16_xdma_201920_3.xpfm",
+      "sysConfig": "config0_0",
+      "applications": [
+        {
+          "name": "scamp",
+          "platform": "/opt/xilinx/platforms/xilinx_u50_gen3x16_xdma_201920_3/xilinx_u50_gen3x16_xdma_201920_3.xpfm",
+          "sysConfig": "config0_0",
+          "domain": "x86_0",
+          "system": "scamp_system"
+        }
+      ]
+    }
+  ],
+  "others": []
+}

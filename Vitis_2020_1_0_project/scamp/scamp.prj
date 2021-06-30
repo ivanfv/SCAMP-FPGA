@@ -1,0 +1,533 @@
+<?xml version="1.0" encoding="ASCII"?>
+<openclProject:OpenCLProject xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:openclProject="http://www.xilinx.com/openclproject" name="scamp" location="/home/ifernandez_local/vitis_workspace/scamp" platform="/opt/xilinx/platforms/xilinx_u50_gen3x16_xdma_201920_3/xilinx_u50_gen3x16_xdma_201920_3.xpfm" platformUID="xilinx:u50:gen3x16_xdma:201920.3" systemProject="scamp_system" sysConfig="config0_0" cpu="x86_0" os="linux" dimmRepoPath="">
+  <configuration name="Emulation-SW" id="com.xilinx.accelerated.config.sw_emu.657034852" dirty="true">
+    <configBuildOptions xsi:type="openclProject:OpenCLOptions" kernelDebug="true">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="6" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_5" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_6" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="numDiagonals"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </configBuildOptions>
+    <lastBuildOptions xsi:type="openclProject:OpenCLOptions" kernelDebug="true">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="6" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_5" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_6" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="numDiagonals"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </lastBuildOptions>
+  </configuration>
+  <configuration name="Emulation-HW" id="com.xilinx.accelerated.config.hw_emu.1080955111" dirty="true">
+    <configBuildOptions xsi:type="openclProject:OpenCLOptions" kernelDebug="true" reportLevel="2" target="hw_emu">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="6" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_5" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_6" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="numDiagonals"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </configBuildOptions>
+    <lastBuildOptions xsi:type="openclProject:OpenCLOptions" kernelDebug="true" reportLevel="2" target="hw_emu">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="4" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory=""/>
+            <args name="means" master="true" memory=""/>
+            <args name="df" master="true" memory=""/>
+            <args name="dg" master="true" memory=""/>
+            <args name="norms" master="true" memory=""/>
+            <args name="profile" master="true" memory=""/>
+            <args name="profileIndex" master="true" memory=""/>
+            <args name="profileLength" memory=""/>
+            <args name="numDiagonals" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="numDiagonals"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </lastBuildOptions>
+  </configuration>
+  <configuration name="Hardware" id="com.xilinx.accelerated.config.hw.1996812577">
+    <configBuildOptions xsi:type="openclProject:OpenCLOptions" hardwareOptimizationLevel="O_3" target="hw">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="6" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="Auto">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[11]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[5]"/>
+            <args name="dg" master="true" memory="HBM[6]"/>
+            <args name="norms" master="true" memory="HBM[7]"/>
+            <args name="profile" master="true" memory="HBM[12]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="Auto">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[8]"/>
+            <args name="dg" master="true" memory="HBM[9]"/>
+            <args name="norms" master="true" memory="HBM[10]"/>
+            <args name="profile" master="true" memory="HBM[13]"/>
+            <args name="profileIndex" master="true" memory="HBM[13]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[17]"/>
+            <args name="dg" master="true" memory="HBM[18]"/>
+            <args name="norms" master="true" memory="HBM[19]"/>
+            <args name="profile" master="true" memory="HBM[26]"/>
+            <args name="profileIndex" master="true" memory="HBM[26]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_5" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[20]"/>
+            <args name="dg" master="true" memory="HBM[21]"/>
+            <args name="norms" master="true" memory="HBM[22]"/>
+            <args name="profile" master="true" memory="HBM[27]"/>
+            <args name="profileIndex" master="true" memory="HBM[27]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_6" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[23]"/>
+            <args name="dg" master="true" memory="HBM[24]"/>
+            <args name="norms" master="true" memory="HBM[25]"/>
+            <args name="profile" master="true" memory="HBM[28]"/>
+            <args name="profileIndex" master="true" memory="HBM[28]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="startDiag"/>
+          <args name="endDiag"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </configBuildOptions>
+    <lastBuildOptions xsi:type="openclProject:OpenCLOptions" hardwareOptimizationLevel="O_3" target="hw">
+      <binaryContainers name="SCAMP">
+        <kernels name="krnl_scamp" sourceFile="src/krnl_scamp.cpp" numComputeUnits="6" xoccOptions="">
+          <computeUnits name="krnl_scamp_1" slr="Auto">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[2]"/>
+            <args name="dg" master="true" memory="HBM[3]"/>
+            <args name="norms" master="true" memory="HBM[4]"/>
+            <args name="profile" master="true" memory="HBM[11]"/>
+            <args name="profileIndex" master="true" memory="HBM[11]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_2" slr="">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[5]"/>
+            <args name="dg" master="true" memory="HBM[6]"/>
+            <args name="norms" master="true" memory="HBM[7]"/>
+            <args name="profile" master="true" memory="HBM[12]"/>
+            <args name="profileIndex" master="true" memory="HBM[12]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_3" slr="Auto">
+            <args name="tSeries" master="true" memory="HBM[0]"/>
+            <args name="means" master="true" memory="HBM[1]"/>
+            <args name="df" master="true" memory="HBM[8]"/>
+            <args name="dg" master="true" memory="HBM[9]"/>
+            <args name="norms" master="true" memory="HBM[10]"/>
+            <args name="profile" master="true" memory="HBM[13]"/>
+            <args name="profileIndex" master="true" memory="HBM[13]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_4" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[17]"/>
+            <args name="dg" master="true" memory="HBM[18]"/>
+            <args name="norms" master="true" memory="HBM[19]"/>
+            <args name="profile" master="true" memory="HBM[26]"/>
+            <args name="profileIndex" master="true" memory="HBM[26]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_5" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[20]"/>
+            <args name="dg" master="true" memory="HBM[21]"/>
+            <args name="norms" master="true" memory="HBM[22]"/>
+            <args name="profile" master="true" memory="HBM[27]"/>
+            <args name="profileIndex" master="true" memory="HBM[27]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <computeUnits name="krnl_scamp_6" slr="">
+            <args name="tSeries" master="true" memory="HBM[15]"/>
+            <args name="means" master="true" memory="HBM[16]"/>
+            <args name="df" master="true" memory="HBM[23]"/>
+            <args name="dg" master="true" memory="HBM[24]"/>
+            <args name="norms" master="true" memory="HBM[25]"/>
+            <args name="profile" master="true" memory="HBM[28]"/>
+            <args name="profileIndex" master="true" memory="HBM[28]"/>
+            <args name="profileLength" memory=""/>
+            <args name="startDiag" memory=""/>
+            <args name="endDiag" memory=""/>
+            <args name="windowSize" memory=""/>
+          </computeUnits>
+          <args name="tSeries" master="true"/>
+          <args name="means" master="true"/>
+          <args name="df" master="true"/>
+          <args name="dg" master="true"/>
+          <args name="norms" master="true"/>
+          <args name="profile" master="true"/>
+          <args name="profileIndex" master="true"/>
+          <args name="profileLength"/>
+          <args name="startDiag"/>
+          <args name="endDiag"/>
+          <args name="windowSize"/>
+          <additionalSourceFiles>krnl_scamp.ini</additionalSourceFiles>
+        </kernels>
+      </binaryContainers>
+    </lastBuildOptions>
+  </configuration>
+</openclProject:OpenCLProject>
